@@ -1,6 +1,27 @@
 import React from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
 
 const CallToAction = () => {
+  const navigate = useNavigate()
+  const { user } = useAuth()
+
+  const handleSignUp = () => {
+    if (user) {
+      navigate('/dashboard')
+    } else {
+      navigate('/auth/login')
+    }
+  }
+
+  const handleLearnMore = () => {
+    // Scroll to features section or navigate to about page
+    const featuresSection = document.getElementById('features')
+    if (featuresSection) {
+      featuresSection.scrollIntoView({ behavior: 'smooth' })
+    }
+  }
+
   return (
     <section className="py-20 bg-gradient-to-br from-blue-600 via-purple-600 to-blue-800 relative overflow-hidden">
       {/* Background Pattern */}
@@ -18,10 +39,16 @@ const CallToAction = () => {
           Join thousands of students who are already discovering life-changing opportunities and building their future.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <button className="bg-white text-blue-600 px-8 py-4 rounded-lg text-lg font-medium hover:bg-gray-50 hover:scale-105 transition-all duration-200 shadow-lg">
-            Sign Up Free
+          <button 
+            onClick={handleSignUp}
+            className="bg-white text-blue-600 px-8 py-4 rounded-lg text-lg font-medium hover:bg-gray-50 hover:scale-105 transition-all duration-200 shadow-lg"
+          >
+            {user ? 'Go to Dashboard' : 'Sign Up Free'}
           </button>
-          <button className="border-2 border-white text-white px-8 py-4 rounded-lg text-lg font-medium hover:bg-white hover:text-blue-600 transition-all duration-200">
+          <button 
+            onClick={handleLearnMore}
+            className="border-2 border-white text-white px-8 py-4 rounded-lg text-lg font-medium hover:bg-white hover:text-blue-600 transition-all duration-200"
+          >
             Learn More
           </button>
         </div>

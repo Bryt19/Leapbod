@@ -1,7 +1,28 @@
 import React from 'react'
+import { useNavigate } from 'react-router-dom'
 import { HiArrowRight as ArrowRight } from 'react-icons/hi'
+import { useAuth } from '../contexts/AuthContext'
 
 const Hero = () => {
+  const navigate = useNavigate()
+  const { user } = useAuth()
+
+  const handleExploreOpportunities = () => {
+    if (user) {
+      navigate('/opportunities')
+    } else {
+      navigate('/auth/login')
+    }
+  }
+
+  const handleSubmitOpportunity = () => {
+    if (user) {
+      navigate('/dashboard')
+    } else {
+      navigate('/auth/login')
+    }
+  }
+
   return (
     <section 
       className="relative min-h-screen flex items-center justify-center overflow-hidden bg-cover bg-center bg-no-repeat"
@@ -26,11 +47,17 @@ const Hero = () => {
             Submit your own discoveries and help build a community of growth.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-lg text-lg font-medium hover:shadow-2xl hover:scale-105 transition-all duration-300 flex items-center justify-center">
-              Explore Opportunities
+            <button 
+              onClick={handleExploreOpportunities}
+              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-lg text-lg font-medium hover:shadow-2xl hover:scale-105 transition-all duration-300 flex items-center justify-center"
+            >
+              {user ? 'Explore Opportunities' : 'Get Started'}
               <ArrowRight className="ml-2 w-5 h-5" />
             </button>
-            <button className="border-2 border-white text-white px-8 py-4 rounded-lg text-lg font-medium hover:bg-white hover:text-gray-900 transition-all duration-300">
+            <button 
+              onClick={handleSubmitOpportunity}
+              className="border-2 border-white text-white px-8 py-4 rounded-lg text-lg font-medium hover:bg-white hover:text-gray-900 transition-all duration-300"
+            >
               Submit an Opportunity
             </button>
           </div>
