@@ -229,7 +229,6 @@ export default function AdminPanel() {
         .eq('id', selectedItem.id)
 
       if (error) {
-        console.error('Error updating opportunity:', error)
         throw error
       }
 
@@ -238,7 +237,11 @@ export default function AdminPanel() {
       setDialogMode('view')
     } catch (error) {
       console.error('Error updating opportunity:', error)
-      alert('Failed to update opportunity. Please try again.')
+      let errorMessage = 'Failed to update opportunity. Please try again.'
+      if (error && typeof error === 'object' && 'message' in error) {
+        errorMessage = (error as { message: string }).message
+      }
+      alert(errorMessage)
     } finally {
       setUpdating(null)
     }
@@ -247,33 +250,12 @@ export default function AdminPanel() {
   const deleteOpportunity = async (opportunityId: string) => {
     setUpdating(opportunityId)
     try {
-      // First, delete related records
-      await Promise.all([
-        // Delete bookmarks
-        supabase
-          .from('bookmarks')
-          .delete()
-          .eq('opportunity_id', opportunityId),
-        // Delete applications
-        supabase
-          .from('applications')
-          .delete()
-          .eq('opportunity_id', opportunityId),
-        // Delete notifications
-        supabase
-          .from('notifications')
-          .delete()
-          .eq('related_opportunity_id', opportunityId)
-      ])
-
-      // Then delete the opportunity
       const { error } = await supabase
         .from('opportunities')
         .delete()
         .eq('id', opportunityId)
 
       if (error) {
-        console.error('Error deleting opportunity:', error)
         throw error
       }
 
@@ -282,7 +264,11 @@ export default function AdminPanel() {
       setDialogMode('view')
     } catch (error) {
       console.error('Error deleting opportunity:', error)
-      alert('Failed to delete opportunity. Please try again.')
+      let errorMessage = 'Failed to delete opportunity. Please try again.'
+      if (error && typeof error === 'object' && 'message' in error) {
+        errorMessage = (error as { message: string }).message
+      }
+      alert(errorMessage)
     } finally {
       setUpdating(null)
     }

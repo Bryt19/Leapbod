@@ -139,7 +139,7 @@ export default function SubmitOpportunity() {
     e.preventDefault()
     
     if (!validateForm()) {
-      window.scrollTo(0, 0) // Scroll to top to show errors
+      window.scrollTo(0, 0)
       return
     }
 
@@ -163,33 +163,22 @@ export default function SubmitOpportunity() {
         application_url: formData.application_url.trim() || null,
         requirements: cleanRequirements,
         benefits: cleanBenefits.length > 0 ? cleanBenefits : null,
-        submitted_by: user?.id,
+        submitted_by: user.id,
         status: 'pending',
         views_count: 0,
-        applications_count: 0
+        applications_count: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       }
 
-      console.log('Preparing to submit opportunity:', submissionData)
-      
-      const { data, error: insertError } = await supabase
+      const { error: insertError } = await supabase
         .from('opportunities')
         .insert([submissionData])
-        .select('*')
-        .single()
 
       if (insertError) {
-        console.error('Supabase insert error:', insertError)
-        throw new Error(insertError.message)
+        throw insertError
       }
 
-      if (!data) {
-        console.error('No data returned from insert')
-        throw new Error('Failed to create opportunity - no data returned')
-      }
-
-      console.log('Opportunity submitted successfully:', data)
-
-      // Navigate to the opportunities page after successful submission
       navigate('/opportunities', { 
         state: { 
           message: 'Opportunity submitted successfully! It will be reviewed by our team.',
@@ -197,15 +186,11 @@ export default function SubmitOpportunity() {
         }
       })
     } catch (error) {
-      console.error('Error in submission process:', error)
+      console.error('Error submitting opportunity:', error)
       
-      let errorMessage = 'An unexpected error occurred'
-      if (error instanceof Error) {
-        errorMessage = error.message
-      } else if (typeof error === 'object' && error !== null) {
-        // Handle Supabase error object
-        const supabaseError = error as { message?: string, details?: string, hint?: string }
-        errorMessage = supabaseError.message || supabaseError.details || supabaseError.hint || errorMessage
+      let errorMessage = 'Failed to submit opportunity. Please try again.'
+      if (error && typeof error === 'object' && 'message' in error) {
+        errorMessage = (error as { message: string }).message
       }
 
       setErrors(prev => ({
@@ -213,7 +198,7 @@ export default function SubmitOpportunity() {
         general: errorMessage
       }))
       
-      window.scrollTo(0, 0) // Scroll to top to show error
+      window.scrollTo(0, 0)
     } finally {
       setLoading(false)
     }
