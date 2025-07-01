@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import type { User, Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import type { Profile } from '../types/database.types'
@@ -16,6 +17,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const navigate = useNavigate()
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [session, setSession] = useState<Session | null>(null)
@@ -84,6 +86,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
           await handleUserSignIn(session.user)
           console.log('AuthContext: Sign in handling complete')
+          // Redirect to dashboard after successful sign in
+          navigate('/dashboard')
         } catch (error) {
           console.error('AuthContext: Error handling user sign in:', error)
         } finally {
@@ -212,6 +216,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null)
       setProfile(null)
       setSession(null)
+
+      // Clear localStorage
+      localStorage.clear()
+
+      // Redirect to homepage
+      navigate('/')
     } catch (error) {
       console.error('Error signing out:', error)
       throw error
