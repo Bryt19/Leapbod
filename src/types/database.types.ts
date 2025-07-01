@@ -309,4 +309,25 @@ export type Opportunity = Tables<'opportunities'>
 export type Profile = Tables<'profiles'>
 export type Application = Tables<'applications'>
 export type Bookmark = Tables<'bookmarks'>
-export type Notification = Tables<'notifications'> 
+export type Notification = Tables<'notifications'>
+
+// Additional interfaces for forms and components
+export interface Profile {
+  id: string
+  role: 'student' | 'admin'
+  created_at?: string
+}
+
+export interface Bookmark {
+  user_id: string
+  opportunity_id: string
+  created_at?: string
+}
+
+export interface Application {
+  id: string
+  user_id: string
+  opportunity_id: string
+  status: string
+  created_at?: string
+} 

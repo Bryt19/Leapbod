@@ -1,270 +1,240 @@
 import { useState } from 'react'
-import { HiMenu, HiX, HiUser, HiCog, HiLogout } from 'react-icons/hi'
+import { Link, useLocation } from 'react-router-dom'
+import { HiMenu, HiX, HiHome, HiBookOpen, HiUser, HiCog, HiLogout } from 'react-icons/hi'
 import { useAuth } from '../contexts/AuthContext'
-import { Link } from 'react-router-dom'
+import { Button } from './ui/button'
+import { Badge } from './ui/badge'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu'
 
 export default function Navigation() {
-  const [isOpen, setIsOpen] = useState(false)
-  const [isProfileOpen, setIsProfileOpen] = useState(false)
-  const { user, profile, signOut, isAdmin } = useAuth()
+  const { user, profile, isAdmin, signOut } = useAuth()
+  const location = useLocation()
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+
+  const navigation = [
+    { name: 'Home', href: '/', icon: HiHome },
+    { name: 'Opportunities', href: '/opportunities', icon: HiBookOpen },
+    ...(user ? [{ name: 'Dashboard', href: '/dashboard', icon: HiUser }] : []),
+    ...(isAdmin ? [{ name: 'Admin', href: '/admin', icon: HiCog }] : []),
+  ]
+
+  const isCurrentPage = (href: string) => {
+    if (href === '/') {
+      return location.pathname === '/'
+    }
+    return location.pathname.startsWith(href)
+  }
 
   const handleSignOut = async () => {
     try {
       await signOut()
-      setIsProfileOpen(false)
     } catch (error) {
       console.error('Error signing out:', error)
     }
   }
 
   return (
-    <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-200">
+    <nav className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Logo */}
-          <div className="flex-shrink-0">
-            <Link to="/" className="text-2xl font-bold">
-              Leap<span className="text-blue-600">Board</span>
+        <div className="flex justify-between h-16">
+          {/* Logo and main nav */}
+          <div className="flex items-center">
+            <Link to="/" className="flex-shrink-0 flex items-center">
+              <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center mr-3">
+                <span className="text-primary-foreground font-bold text-lg">L</span>
+              </div>
+              <span className="text-xl font-bold text-foreground">Leapboard</span>
             </Link>
-          </div>
 
-          {/* Desktop Menu */}
-          <div className="hidden md:block">
-            <div className="ml-10 flex items-baseline space-x-4">
-              <Link 
-                to="/" 
-                className="text-gray-900 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
-              >
-                Home
-              </Link>
-              <Link 
-                to="/opportunities" 
-                className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
-              >
-                Opportunities
-              </Link>
-              {user && (
-                <>
-                  <Link 
-                    to="/dashboard" 
-                    className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+            {/* Desktop navigation */}
+            <div className="hidden md:ml-8 md:flex md:space-x-1">
+              {navigation.map((item) => {
+                const Icon = item.icon
+                const isCurrent = isCurrentPage(item.href)
+                return (
+                  <Button
+                    key={item.name}
+                    asChild
+                    variant={isCurrent ? "default" : "ghost"}
+                    className="relative"
                   >
-                    Dashboard
-                  </Link>
-                  {isAdmin && (
-                    <Link 
-                      to="/admin" 
-                      className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
-                    >
-                      Admin
+                    <Link to={item.href}>
+                      <Icon className="w-4 h-4 mr-2" />
+                      {item.name}
+                      {item.name === 'Admin' && isAdmin && (
+                        <Badge variant="secondary" className="ml-2 text-xs">Admin</Badge>
+                      )}
                     </Link>
-                  )}
-                </>
-              )}
+                  </Button>
+                )
+              })}
             </div>
           </div>
 
-          {/* Auth Section */}
-          <div className="hidden md:block">
-            <div className="ml-4 flex items-center md:ml-6">
-              {user ? (
-                <div className="relative">
-                  <button
-                    onClick={() => setIsProfileOpen(!isProfileOpen)}
-                    className="bg-gray-800 flex text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-white"
-                  >
-                    <span className="sr-only">Open user menu</span>
-                    {user.user_metadata?.avatar_url ? (
-                      <img 
-                        className="h-8 w-8 rounded-full" 
-                        src={user.user_metadata.avatar_url} 
-                        alt="Profile"
-                      />
-                    ) : (
-                      <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center">
-                        <HiUser className="h-5 w-5 text-white" />
-                      </div>
-                    )}
-                  </button>
-
-                  {isProfileOpen && (
-                    <div className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
-                      <div className="px-4 py-2 border-b border-gray-100">
-                        <p className="text-sm font-medium text-gray-900">
-                          {profile?.full_name || user.email}
-                        </p>
-                        <p className="text-xs text-gray-500 capitalize">
-                          {profile?.role || 'student'}
-                        </p>
-                      </div>
-                      <Link
-                        to="/profile"
-                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                        onClick={() => setIsProfileOpen(false)}
-                      >
-                        <HiUser className="mr-3 h-4 w-4" />
-                        Your Profile
-                      </Link>
-                      <Link
-                        to="/settings"
-                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                        onClick={() => setIsProfileOpen(false)}
-                      >
-                        <HiCog className="mr-3 h-4 w-4" />
-                        Settings
-                      </Link>
-                      <button
-                        onClick={handleSignOut}
-                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
-                        <HiLogout className="mr-3 h-4 w-4" />
-                        Sign out
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="space-x-4">
-                  <Link
-                    to="/auth/login"
-                    className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
-                  >
-                    Sign In
-                  </Link>
-                  <Link
-                    to="/auth/login"
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
-                  >
-                    Get Started
-                  </Link>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Mobile menu button */}
-          <div className="md:hidden">
-            <button
-              onClick={() => setIsOpen(!isOpen)}
-              className="bg-gray-200 inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-white"
-            >
-              <span className="sr-only">Open main menu</span>
-              {isOpen ? (
-                <HiX className="block h-6 w-6" />
-              ) : (
-                <HiMenu className="block h-6 w-6" />
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile menu */}
-      {isOpen && (
-        <div className="md:hidden">
-          <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white border-t border-gray-200">
-            <Link 
-              to="/" 
-              className="text-gray-900 hover:text-blue-600 block px-3 py-2 rounded-md text-base font-medium"
-              onClick={() => setIsOpen(false)}
-            >
-              Home
-            </Link>
-            <Link 
-              to="/opportunities" 
-              className="text-gray-700 hover:text-blue-600 block px-3 py-2 rounded-md text-base font-medium"
-              onClick={() => setIsOpen(false)}
-            >
-              Opportunities
-            </Link>
+          {/* Desktop user menu */}
+          <div className="hidden md:flex md:items-center md:space-x-4">
             {user ? (
-              <>
-                <Link 
-                  to="/dashboard" 
-                  className="text-gray-700 hover:text-blue-600 block px-3 py-2 rounded-md text-base font-medium"
-                  onClick={() => setIsOpen(false)}
-                >
-                  Dashboard
-                </Link>
-                {isAdmin && (
-                  <Link 
-                    to="/admin" 
-                    className="text-gray-700 hover:text-blue-600 block px-3 py-2 rounded-md text-base font-medium"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    Admin
-                  </Link>
-                )}
-                <div className="border-t border-gray-200 pt-4 pb-3">
-                  <div className="flex items-center px-5">
-                    {user.user_metadata?.avatar_url ? (
-                      <img 
-                        className="h-10 w-10 rounded-full" 
-                        src={user.user_metadata.avatar_url} 
-                        alt="Profile"
-                      />
-                    ) : (
-                      <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center">
-                        <HiUser className="h-6 w-6 text-white" />
-                      </div>
-                    )}
-                    <div className="ml-3">
-                      <div className="text-base font-medium text-gray-800">
-                        {profile?.full_name || user.email}
-                      </div>
-                      <div className="text-sm font-medium text-gray-500 capitalize">
-                        {profile?.role || 'student'}
-                      </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-8 w-8 rounded-full p-0">
+                    <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center">
+                      <span className="text-primary-foreground font-medium text-sm">
+                        {profile?.full_name?.charAt(0) || user.email?.charAt(0) || 'U'}
+                      </span>
                     </div>
-                  </div>
-                  <div className="mt-3 px-2 space-y-1">
-                    <Link
-                      to="/profile"
-                      className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50"
-                      onClick={() => setIsOpen(false)}
-                    >
-                      Your Profile
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56" align="end" forceMount>
+                  <DropdownMenuLabel className="font-normal">
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium leading-none">
+                        {profile?.full_name || 'User'}
+                      </p>
+                      <p className="text-xs leading-none text-muted-foreground">
+                        {user.email}
+                      </p>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link to="/dashboard" className="cursor-pointer">
+                      <HiUser className="mr-2 h-4 w-4" />
+                      Dashboard
                     </Link>
-                    <Link
-                      to="/settings"
-                      className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50"
-                      onClick={() => setIsOpen(false)}
-                    >
-                      Settings
-                    </Link>
-                    <button
-                      onClick={() => {
-                        handleSignOut()
-                        setIsOpen(false)
-                      }}
-                      className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50"
-                    >
-                      Sign out
-                    </button>
-                  </div>
-                </div>
-              </>
+                  </DropdownMenuItem>
+                  {isAdmin && (
+                    <DropdownMenuItem asChild>
+                      <Link to="/admin" className="cursor-pointer">
+                        <HiCog className="mr-2 h-4 w-4" />
+                        Admin Panel
+                        <Badge variant="secondary" className="ml-auto">Admin</Badge>
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
+                    <HiLogout className="mr-2 h-4 w-4" />
+                    Sign out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : (
-              <div className="border-t border-gray-200 pt-4 pb-3 space-y-1">
-                <Link
-                  to="/auth/login"
-                  className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50"
-                  onClick={() => setIsOpen(false)}
-                >
-                  Sign In
-                </Link>
-                <Link
-                  to="/auth/login"
-                  className="block px-3 py-2 rounded-md text-base font-medium bg-blue-600 text-white hover:bg-blue-700"
-                  onClick={() => setIsOpen(false)}
-                >
-                  Get Started
-                </Link>
+              <div className="flex items-center space-x-2">
+                <Button asChild variant="ghost">
+                  <Link to="/auth/login">Sign In</Link>
+                </Button>
+                <Button asChild>
+                  <Link to="/auth/login">Get Started</Link>
+                </Button>
               </div>
             )}
           </div>
+
+          {/* Mobile menu button */}
+          <div className="md:hidden flex items-center">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="p-2"
+            >
+              {isMobileMenuOpen ? (
+                <HiX className="h-6 w-6" />
+              ) : (
+                <HiMenu className="h-6 w-6" />
+              )}
+            </Button>
+          </div>
         </div>
-      )}
+
+        {/* Mobile menu */}
+        {isMobileMenuOpen && (
+          <div className="md:hidden border-t border-border">
+            <div className="px-2 pt-2 pb-3 space-y-1">
+              {navigation.map((item) => {
+                const Icon = item.icon
+                const isCurrent = isCurrentPage(item.href)
+                return (
+                  <Button
+                    key={item.name}
+                    asChild
+                    variant={isCurrent ? "default" : "ghost"}
+                    className="w-full justify-start"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <Link to={item.href}>
+                      <Icon className="w-4 h-4 mr-3" />
+                      {item.name}
+                      {item.name === 'Admin' && isAdmin && (
+                        <Badge variant="secondary" className="ml-auto">Admin</Badge>
+                      )}
+                    </Link>
+                  </Button>
+                )
+              })}
+            </div>
+
+            {/* Mobile user section */}
+            <div className="pt-4 pb-3 border-t border-border">
+              {user ? (
+                <div className="px-2 space-y-2">
+                  <div className="flex items-center px-3 py-2">
+                    <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center mr-3">
+                      <span className="text-primary-foreground font-medium">
+                        {profile?.full_name?.charAt(0) || user.email?.charAt(0) || 'U'}
+                      </span>
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-sm font-medium text-foreground">
+                        {profile?.full_name || 'User'}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {user.email}
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => {
+                      handleSignOut()
+                      setIsMobileMenuOpen(false)
+                    }}
+                  >
+                    <HiLogout className="w-4 h-4 mr-3" />
+                    Sign out
+                  </Button>
+                </div>
+              ) : (
+                <div className="px-2 space-y-2">
+                  <Button
+                    asChild
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <Link to="/auth/login">Sign In</Link>
+                  </Button>
+                  <Button
+                    asChild
+                    className="w-full justify-start"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <Link to="/auth/login">Get Started</Link>
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </nav>
   )
 } 
