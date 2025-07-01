@@ -232,31 +232,25 @@ export type Database = {
 type DefaultSchema = Database[Extract<keyof Database, "public">]
 
 export type Tables<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+  PublicTableNameOrOptions extends
+    | keyof Database['public']['Tables']
     | { schema: keyof Database },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof Database
-  }
-    ? keyof (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
-  ? (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-      Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicTableNameOrOptions['schema']]['Tables']
+    : never = never
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicTableNameOrOptions['schema']]['Tables'][TableName] extends {
       Row: infer R
     }
     ? R
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-        Row: infer R
-      }
-      ? R
-      : never
+  : PublicTableNameOrOptions extends keyof Database['public']['Tables']
+  ? Database['public']['Tables'][PublicTableNameOrOptions] extends {
+      Row: infer R
+    }
+    ? R
     : never
+  : never
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
@@ -305,29 +299,8 @@ export type TablesUpdate<
     : never
 
 // Helper types for easier usage
-export type Opportunity = Tables<'opportunities'>
 export type Profile = Tables<'profiles'>
 export type Application = Tables<'applications'>
 export type Bookmark = Tables<'bookmarks'>
-export type Notification = Tables<'notifications'>
-
-// Additional interfaces for forms and components
-export interface Profile {
-  id: string
-  role: 'student' | 'admin'
-  created_at?: string
-}
-
-export interface Bookmark {
-  user_id: string
-  opportunity_id: string
-  created_at?: string
-}
-
-export interface Application {
-  id: string
-  user_id: string
-  opportunity_id: string
-  status: string
-  created_at?: string
-} 
+export type Opportunity = Tables<'opportunities'>
+export type Notification = Tables<'notifications'> 

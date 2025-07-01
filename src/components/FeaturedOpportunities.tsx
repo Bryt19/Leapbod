@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { HiArrowRight as ArrowRight } from 'react-icons/hi'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -32,56 +32,67 @@ const FeaturedOpportunities = () => {
     }
   }
 
-  // Fallback hardcoded opportunities if no featured ones exist
-  const fallbackOpportunities: Opportunity[] = [
+  const fallbackData: Opportunity[] = [
     {
       id: 'fallback-1',
-      title: "Google Summer Internship 2024",
-      category: "internship",
-      deadline: "2024-03-15",
-      location: "Remote",
-      organization: "Google",
-      description: "Join Google's engineering team for a transformative summer experience working on cutting-edge projects...",
-      application_url: "https://careers.google.com",
+      title: 'Summer Internship Program',
+      category: 'internship',
+      deadline: new Date().toISOString(),
+      location: 'Remote',
+      organization: 'Tech Corp',
+      description: 'Join our exciting summer internship program...',
+      application_url: 'https://example.com',
       featured: true,
       status: 'approved',
-      views_count: 500,
+      views_count: 100,
       applications_count: 25,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      submitted_by: null,
+      requirements: [],
+      benefits: []
     },
     {
       id: 'fallback-2',
-      title: "Merit Scholarship Program",
-      category: "scholarship",
-      deadline: "2024-02-28",
-      location: "US",
-      organization: "National Science Foundation",
-      description: "Full tuition scholarship for outstanding students in STEM fields with exceptional academic records...",
-      application_url: "https://nsf.gov",
+      title: 'Research Grant Opportunity',
+      category: 'research',
+      deadline: new Date().toISOString(),
+      location: 'Multiple Locations',
+      organization: 'Science Foundation',
+      description: 'Research grants available for graduate students...',
+      application_url: 'https://example.com',
       featured: true,
       status: 'approved',
-      views_count: 350,
-      applications_count: 40,
-      created_at: new Date().toISOString()
+      views_count: 75,
+      applications_count: 15,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      submitted_by: null,
+      requirements: [],
+      benefits: []
     },
     {
       id: 'fallback-3',
-      title: "Startup Competition 2024",
-      category: "competition",
-      deadline: "2024-04-10",
-      location: "San Francisco",
-      organization: "TechCrunch",
-      description: "Pitch your startup idea for a chance to win $50,000 in funding and mentorship from industry leaders...",
-      application_url: "https://techcrunch.com",
+      title: 'Scholarship Program',
+      category: 'scholarship',
+      deadline: new Date().toISOString(),
+      location: 'Nationwide',
+      organization: 'Education Fund',
+      description: 'Full-ride scholarships available for undergraduates...',
+      application_url: 'https://example.com',
       featured: true,
       status: 'approved',
-      views_count: 275,
-      applications_count: 15,
-      created_at: new Date().toISOString()
+      views_count: 150,
+      applications_count: 50,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      submitted_by: null,
+      requirements: [],
+      benefits: []
     }
   ]
 
-  const displayOpportunities = opportunities.length > 0 ? opportunities : fallbackOpportunities
+  const displayOpportunities = opportunities.length > 0 ? opportunities : fallbackData
 
   return (
     <section className="py-20 bg-white" id="opportunities">

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { HiPlus, HiX, HiInformationCircle, HiPhotograph, HiTrash } from 'react-icons/hi'
+import { HiPlus, HiX, HiInformationCircle } from 'react-icons/hi'
 import Navigation from '../components/Navigation'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -27,7 +27,6 @@ interface FormData {
   application_url: string
   requirements: string[]
   benefits: string[]
-  images: File[]
 }
 
 const initialFormData: FormData = {
@@ -39,8 +38,7 @@ const initialFormData: FormData = {
   organization: '',
   application_url: '',
   requirements: [''],
-  benefits: [''],
-  images: []
+  benefits: ['']
 }
 
 export default function SubmitOpportunity() {
@@ -49,7 +47,6 @@ export default function SubmitOpportunity() {
   const [formData, setFormData] = useState<FormData>(initialFormData)
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([])
 
   const categories = [
     { value: 'internship', label: 'Internship', icon: '💼' },
@@ -88,57 +85,6 @@ export default function SubmitOpportunity() {
         [field]: prev[field].filter((_, i) => i !== index)
       }))
     }
-  }
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
-    const maxImages = 3
-    const maxSize = 5 * 1024 * 1024 // 5MB
-    
-    // Validate file types and sizes
-    const validFiles = files.filter(file => {
-      if (!file.type.startsWith('image/')) {
-        setErrors(prev => ({ ...prev, images: 'Only image files are allowed' }))
-        return false
-      }
-      if (file.size > maxSize) {
-        setErrors(prev => ({ ...prev, images: 'Images must be smaller than 5MB' }))
-        return false
-      }
-      return true
-    })
-
-    // Check total image count
-    if (formData.images.length + validFiles.length > maxImages) {
-      setErrors(prev => ({ ...prev, images: `Maximum ${maxImages} images allowed` }))
-      return
-    }
-
-    // Clear image errors if validation passes
-    if (errors.images) {
-      setErrors(prev => ({ ...prev, images: '' }))
-    }
-
-    // Update form data with new images
-    setFormData(prev => ({
-      ...prev,
-      images: [...prev.images, ...validFiles]
-    }))
-
-    // Create preview URLs
-    const newPreviewUrls = validFiles.map(file => URL.createObjectURL(file))
-    setImagePreviewUrls(prev => [...prev, ...newPreviewUrls])
-  }
-
-  const removeImage = (index: number) => {
-    // Revoke the object URL to prevent memory leaks
-    URL.revokeObjectURL(imagePreviewUrls[index])
-    
-    setFormData(prev => ({
-      ...prev,
-      images: prev.images.filter((_, i) => i !== index)
-    }))
-    setImagePreviewUrls(prev => prev.filter((_, i) => i !== index))
   }
 
   const validateForm = (): boolean => {
@@ -189,35 +135,6 @@ export default function SubmitOpportunity() {
     }
   }
 
-  const uploadImages = async (): Promise<string[]> => {
-    if (formData.images.length === 0) return []
-
-    const imageUrls: string[] = []
-    
-    for (const image of formData.images) {
-      const fileExt = image.name.split('.').pop()
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
-      const filePath = `opportunity-images/${fileName}`
-
-      const { error: uploadError } = await supabase.storage
-        .from('images')
-        .upload(filePath, image)
-
-      if (uploadError) {
-        console.error('Error uploading image:', uploadError)
-        throw new Error('Failed to upload image')
-      }
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('images')
-        .getPublicUrl(filePath)
-
-      imageUrls.push(publicUrl)
-    }
-
-    return imageUrls
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -233,9 +150,6 @@ export default function SubmitOpportunity() {
 
     setLoading(true)
     try {
-      // Upload images first
-      const imageUrls = await uploadImages()
-      
       const cleanRequirements = formData.requirements.filter(req => req.trim())
       const cleanBenefits = formData.benefits.filter(benefit => benefit.trim())
 
@@ -249,7 +163,6 @@ export default function SubmitOpportunity() {
         application_url: formData.application_url.trim() || null,
         requirements: cleanRequirements,
         benefits: cleanBenefits.length > 0 ? cleanBenefits : null,
-        image_urls: imageUrls.length > 0 ? imageUrls : null,
         submitted_by: user?.id,
         status: 'pending',
         views_count: 0,
@@ -275,9 +188,6 @@ export default function SubmitOpportunity() {
       }
 
       console.log('Opportunity submitted successfully:', data)
-
-      // Clean up preview URLs
-      imagePreviewUrls.forEach(url => URL.revokeObjectURL(url))
 
       // Navigate to the opportunities page after successful submission
       navigate('/opportunities', { 
@@ -341,7 +251,6 @@ export default function SubmitOpportunity() {
                     <Badge variant="secondary">📝 Clear requirements</Badge>
                     <Badge variant="secondary">👥 Reviewed by team</Badge>
                     <Badge variant="secondary">🔔 Status notifications</Badge>
-                    <Badge variant="secondary">📸 Optional images</Badge>
                   </div>
                 </div>
               </div>
@@ -445,82 +354,6 @@ export default function SubmitOpportunity() {
                   )}
                 </div>
                 {errors.description && <p className="text-sm text-destructive">{errors.description}</p>}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Images Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-xl">Images <span className="text-muted-foreground font-normal">(Optional)</span></CardTitle>
-              <CardDescription>
-                Add up to 3 images to showcase the opportunity (max 5MB each)
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Image Upload Input */}
-              <div className="space-y-2">
-                <Label htmlFor="images">Upload Images</Label>
-                <div className="flex items-center gap-4">
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    size="lg"
-                    disabled={loading}
-                  >
-                    {loading ? (
-                      <>
-                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
-                        Submitting...
-                      </>
-                    ) : (
-                      'Submit Opportunity'
-                    )}
-                  </Button>
-                  <Input
-                    id="images"
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handleImageUpload}
-                    className="flex-1"
-                    disabled={formData.images.length >= 3}
-                  />
-                  <Badge variant="outline">
-                    {formData.images.length}/3
-                  </Badge>
-                </div>
-                {errors.images && <p className="text-sm text-destructive">{errors.images}</p>}
-              </div>
-
-              {/* Image Previews */}
-              {formData.images.length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {imagePreviewUrls.map((url, index) => (
-                    <div key={index} className="relative group">
-                      <img
-                        src={url}
-                        alt={`Preview ${index + 1}`}
-                        className="w-full h-32 object-cover rounded-md border"
-                      />
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => removeImage(index)}
-                      >
-                        <HiTrash className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Upload Instructions */}
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <HiPhotograph className="w-4 h-4" />
-                <span>Supported formats: JPG, PNG, GIF, WebP • Max size: 5MB per image</span>
               </div>
             </CardContent>
           </Card>
@@ -696,7 +529,14 @@ export default function SubmitOpportunity() {
                   disabled={loading}
                   className="sm:w-auto"
                 >
-                  {loading ? 'Submitting...' : 'Submit for Review'}
+                  {loading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
+                      Submitting...
+                    </>
+                  ) : (
+                    'Submit for Review'
+                  )}
                 </Button>
               </div>
             </CardContent>

@@ -59,7 +59,7 @@ export default function Dashboard() {
       const { data: submitted, error: submittedError } = await supabase
         .from('opportunities')
         .select('*')
-        .eq('submitted_by', user?.id)
+        .eq('submitted_by', user?.id as string)
         .order('created_at', { ascending: false })
 
       if (submittedError) {
@@ -76,7 +76,7 @@ export default function Dashboard() {
           opportunity_id,
           opportunities (*)
         `)
-        .eq('user_id', user?.id)
+        .eq('user_id', user?.id as string)
 
       if (bookmarksError) {
         console.error('Error fetching bookmarks:', bookmarksError)
