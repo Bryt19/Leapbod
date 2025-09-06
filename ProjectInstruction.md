@@ -1,16 +1,18 @@
-# LEAPBOARD: Student Events and Opportunities Platform
+# LEAPBOD: Student Events and Opportunities Platform
 
 > 💡 **Cursor Prompt:**  
-“You're a senior developer. Based on this markdown spec, scaffold the project features using Supabase (backend/auth/database) and Vite + React + Tailwind (frontend). Build it clean, modular, and production-friendly. Use functional components, hooks, auth context, protected routes, and clearly separate student/admin flows.”
+> “You're a senior developer. Based on this markdown spec, scaffold the project features using Supabase (backend/auth/database) and Vite + React + Tailwind (frontend). Build it clean, modular, and production-friendly. Use functional components, hooks, auth context, protected routes, and clearly separate student/admin flows.”
 
 ---
 
 ## 🌍 Overview
-Leapboard is a platform that allows students to discover, submit, and apply to opportunities like internships, scholarships, events, and more. Submitted opportunities are subject to admin approval before being visible to others.
+
+Leapbod is a platform that allows students to discover, submit, and apply to opportunities like internships, scholarships, events, and more. Submitted opportunities are subject to admin approval before being visible to others.
 
 ---
 
 ## ✅ Functional Requirements
+
 - User registration and login
 - View only **approved** opportunities
 - Submit opportunities (stored as `pending`)
@@ -21,6 +23,7 @@ Leapboard is a platform that allows students to discover, submit, and apply to o
 ---
 
 ## ⚙️ Non-Functional Requirements
+
 - Mobile responsive UI
 - Intuitive UX for students and admins
 - Secure authentication & data management
@@ -29,6 +32,7 @@ Leapboard is a platform that allows students to discover, submit, and apply to o
 ---
 
 ## 🧑‍💼 Actors
+
 - **Student:** regular user
 - **Admin:** elevated user with moderation rights
 
@@ -37,12 +41,14 @@ Leapboard is a platform that allows students to discover, submit, and apply to o
 ## 🔄 Use Cases
 
 ### Student
+
 - Register/Login
 - View approved opportunities
 - Submit a new opportunity
 - View status of submissions
 
 ### Admin
+
 - View all pending submissions
 - Approve/Reject/Edit opportunities
 - Manage user submissions
@@ -84,3 +90,4 @@ create table applications (
   status text default 'applied',
   created_at timestamp default now()
 );
+```

@@ -1,30 +1,30 @@
-import { useState } from 'react'
-import { FcGoogle } from 'react-icons/fc'
-import { useAuth } from '../contexts/AuthContext'
+import { useState } from "react";
+import { FcGoogle } from "react-icons/fc";
+import { useAuth } from "../contexts/AuthContext";
 
 export default function Login() {
-  const { signInWithGoogle } = useAuth()
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { signInWithGoogle } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleGoogleSignIn = async () => {
     try {
-      setLoading(true)
-      setError(null)
-      await signInWithGoogle()
+      setLoading(true);
+      setError(null);
+      await signInWithGoogle();
     } catch (error: any) {
-      setError(error.message || 'An error occurred during sign in')
+      setError(error.message || "An error occurred during sign in");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg">
         <div className="text-center">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            Leap<span className="text-blue-600">Board</span>
+            Leap<span className="text-blue-600">bod</span>
           </h1>
           <p className="text-gray-600 text-lg">
             Discover amazing opportunities
@@ -46,9 +46,7 @@ export default function Login() {
                 <h3 className="text-sm font-medium text-red-800">
                   Authentication Error
                 </h3>
-                <div className="mt-2 text-sm text-red-700">
-                  {error}
-                </div>
+                <div className="mt-2 text-sm text-red-700">{error}</div>
               </div>
             </div>
           </div>
@@ -67,17 +65,17 @@ export default function Login() {
                 <FcGoogle className="h-5 w-5" />
               )}
             </span>
-            {loading ? 'Signing in...' : 'Continue with Google'}
+            {loading ? "Signing in..." : "Continue with Google"}
           </button>
         </div>
 
         <div className="text-center">
           <p className="text-xs text-gray-500">
-            By signing in, you agree to our{' '}
+            By signing in, you agree to our{" "}
             <a href="#" className="text-blue-600 hover:underline">
               Terms of Service
-            </a>{' '}
-            and{' '}
+            </a>{" "}
+            and{" "}
             <a href="#" className="text-blue-600 hover:underline">
               Privacy Policy
             </a>
@@ -90,11 +88,12 @@ export default function Login() {
               🎓 Student Platform
             </h3>
             <p className="text-sm text-blue-700">
-              Discover internships, scholarships, competitions, and research opportunities tailored for students.
+              Discover internships, scholarships, competitions, and research
+              opportunities tailored for students.
             </p>
           </div>
         </div>
       </div>
     </div>
-  )
-} 
+  );
+}
