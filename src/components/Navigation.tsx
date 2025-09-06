@@ -60,9 +60,7 @@ export default function Navigation() {
                   L
                 </span>
               </div>
-              <span className="text-xl font-bold text-foreground">
-                Leapboard
-              </span>
+              <span className="text-xl font-bold text-foreground">Leapbod</span>
             </Link>
 
             {/* Desktop navigation */}
