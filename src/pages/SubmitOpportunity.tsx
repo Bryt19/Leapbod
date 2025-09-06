@@ -1,215 +1,253 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { HiPlus, HiX, HiInformationCircle } from 'react-icons/hi'
-import Navigation from '../components/Navigation'
-import { useAuth } from '../contexts/AuthContext'
-import { supabase } from '../lib/supabase'
-import { Button } from '../components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
-import { Input } from '../components/ui/input'
-import { Textarea } from '../components/ui/textarea'
-import { Label } from '../components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
-import { Badge } from '../components/ui/badge'
-import { Separator } from '../components/ui/separator'
-import { Calendar } from '../components/ui/calendar'
-import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover'
-import { CalendarIcon } from 'lucide-react'
-import { format } from 'date-fns'
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { HiPlus, HiX, HiInformationCircle } from "react-icons/hi";
+import Navigation from "../components/Navigation";
+import { useAuth } from "../contexts/AuthContext";
+import { supabase } from "../lib/supabase";
+import { Button } from "../components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import { Input } from "../components/ui/input";
+import { Textarea } from "../components/ui/textarea";
+import { Label } from "../components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import { Badge } from "../components/ui/badge";
+import { Separator } from "../components/ui/separator";
+import { Calendar } from "../components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "../components/ui/popover";
+import { CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
 
 interface FormData {
-  title: string
-  description: string
-  category: string
-  deadline: Date | undefined
-  location: string
-  organization: string
-  application_url: string
-  requirements: string[]
-  benefits: string[]
+  title: string;
+  description: string;
+  category: string;
+  deadline: Date | undefined;
+  location: string;
+  organization: string;
+  application_url: string;
+  requirements: string[];
+  benefits: string[];
 }
 
 const initialFormData: FormData = {
-  title: '',
-  description: '',
-  category: 'internship',
+  title: "",
+  description: "",
+  category: "internship",
   deadline: undefined,
-  location: '',
-  organization: '',
-  application_url: '',
-  requirements: [''],
-  benefits: ['']
-}
+  location: "",
+  organization: "",
+  application_url: "",
+  requirements: [""],
+  benefits: [""],
+};
 
 export default function SubmitOpportunity() {
-  const { user } = useAuth()
-  const navigate = useNavigate()
-  const [formData, setFormData] = useState<FormData>(initialFormData)
-  const [loading, setLoading] = useState(false)
-  const [errors, setErrors] = useState<Record<string, string>>({})
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [formData, setFormData] = useState<FormData>(initialFormData);
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const categories = [
-    { value: 'internship', label: 'Internship', icon: '💼' },
-    { value: 'scholarship', label: 'Scholarship', icon: '🎓' },
-    { value: 'competition', label: 'Competition', icon: '🏆' },
-    { value: 'event', label: 'Event', icon: '📅' },
-    { value: 'job', label: 'Job', icon: '💼' },
-    { value: 'research', label: 'Research', icon: '🔬' }
-  ]
+    { value: "internship", label: "Internship", icon: "💼" },
+    { value: "scholarship", label: "Scholarship", icon: "🎓" },
+    { value: "competition", label: "Competition", icon: "🏆" },
+    { value: "event", label: "Event", icon: "📅" },
+    { value: "job", label: "Job", icon: "💼" },
+    { value: "research", label: "Research", icon: "🔬" },
+  ];
 
-  const handleInputChange = (field: keyof FormData, value: string | Date | undefined) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+  const handleInputChange = (
+    field: keyof FormData,
+    value: string | Date | undefined
+  ) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }))
+      setErrors((prev) => ({ ...prev, [field]: "" }));
     }
-  }
+  };
 
-  const handleArrayFieldChange = (field: 'requirements' | 'benefits', index: number, value: string) => {
-    setFormData(prev => ({
+  const handleArrayFieldChange = (
+    field: "requirements" | "benefits",
+    index: number,
+    value: string
+  ) => {
+    setFormData((prev) => ({
       ...prev,
-      [field]: prev[field].map((item, i) => i === index ? value : item)
-    }))
-  }
+      [field]: prev[field].map((item, i) => (i === index ? value : item)),
+    }));
+  };
 
-  const addArrayField = (field: 'requirements' | 'benefits') => {
-    setFormData(prev => ({
+  const addArrayField = (field: "requirements" | "benefits") => {
+    setFormData((prev) => ({
       ...prev,
-      [field]: [...prev[field], '']
-    }))
-  }
+      [field]: [...prev[field], ""],
+    }));
+  };
 
-  const removeArrayField = (field: 'requirements' | 'benefits', index: number) => {
+  const removeArrayField = (
+    field: "requirements" | "benefits",
+    index: number
+  ) => {
     if (formData[field].length > 1) {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        [field]: prev[field].filter((_, i) => i !== index)
-      }))
+        [field]: prev[field].filter((_, i) => i !== index),
+      }));
     }
-  }
+  };
 
   const validateForm = (): boolean => {
-    const newErrors: Record<string, string> = {}
+    const newErrors: Record<string, string> = {};
 
     if (!formData.title.trim()) {
-      newErrors.title = 'Title is required'
+      newErrors.title = "Title is required";
     }
 
     if (!formData.description.trim()) {
-      newErrors.description = 'Description is required'
+      newErrors.description = "Description is required";
     } else if (formData.description.length < 50) {
-      newErrors.description = 'Description must be at least 50 characters'
+      newErrors.description = "Description must be at least 50 characters";
     }
 
     if (!formData.organization.trim()) {
-      newErrors.organization = 'Organization is required'
+      newErrors.organization = "Organization is required";
     }
 
     if (formData.application_url && !isValidUrl(formData.application_url)) {
-      newErrors.application_url = 'Please enter a valid URL'
+      newErrors.application_url = "Please enter a valid URL";
     }
 
     if (formData.deadline) {
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
       if (formData.deadline < today) {
-        newErrors.deadline = 'Deadline cannot be in the past'
+        newErrors.deadline = "Deadline cannot be in the past";
       }
     }
 
-    const validRequirements = formData.requirements.filter(req => req.trim())
+    const validRequirements = formData.requirements.filter((req) => req.trim());
     if (validRequirements.length === 0) {
-      newErrors.requirements = 'At least one requirement is needed'
+      newErrors.requirements = "At least one requirement is needed";
     }
 
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const isValidUrl = (url: string): boolean => {
     try {
-      new URL(url)
-      return true
+      new URL(url);
+      return true;
     } catch {
-      return false
+      return false;
     }
-  }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
+    e.preventDefault();
+
     if (!validateForm()) {
-      window.scrollTo(0, 0)
-      return
+      window.scrollTo(0, 0);
+      return;
     }
 
     if (!user) {
-      setErrors(prev => ({ ...prev, general: 'You must be logged in to submit an opportunity' }))
-      return
+      setErrors((prev) => ({
+        ...prev,
+        general: "You must be logged in to submit an opportunity",
+      }));
+      return;
     }
 
-    setLoading(true)
+    setLoading(true);
     try {
-      const cleanRequirements = formData.requirements.filter(req => req.trim())
-      const cleanBenefits = formData.benefits.filter(benefit => benefit.trim())
+      const cleanRequirements = formData.requirements.filter((req) =>
+        req.trim()
+      );
+      const cleanBenefits = formData.benefits.filter((benefit) =>
+        benefit.trim()
+      );
 
       const submissionData = {
         title: formData.title.trim(),
         description: formData.description.trim(),
         category: formData.category,
-        deadline: formData.deadline ? formData.deadline.toISOString().split('T')[0] : null,
+        deadline: formData.deadline
+          ? formData.deadline.toISOString().split("T")[0]
+          : null,
         location: formData.location.trim() || null,
         organization: formData.organization.trim(),
         application_url: formData.application_url.trim() || null,
         requirements: cleanRequirements,
         benefits: cleanBenefits.length > 0 ? cleanBenefits : null,
         submitted_by: user.id,
-        status: 'pending',
+        status: "pending",
         views_count: 0,
         applications_count: 0,
         created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }
+        updated_at: new Date().toISOString(),
+      };
 
       const { error: insertError } = await supabase
-        .from('opportunities')
-        .insert([submissionData])
+        .from("opportunities")
+        .insert([submissionData]);
 
       if (insertError) {
-        throw insertError
+        throw insertError;
       }
 
-      navigate('/opportunities', { 
-        state: { 
-          message: 'Opportunity submitted successfully! It will be reviewed by our team.',
-          type: 'success'
-        }
-      })
+      navigate("/opportunities", {
+        state: {
+          message:
+            "Opportunity submitted successfully! It will be reviewed by our team.",
+          type: "success",
+        },
+      });
     } catch (error) {
-      console.error('Error submitting opportunity:', error)
-      
-      let errorMessage = 'Failed to submit opportunity. Please try again.'
-      if (error && typeof error === 'object' && 'message' in error) {
-        errorMessage = (error as { message: string }).message
+      console.error("Error submitting opportunity:", error);
+
+      let errorMessage = "Failed to submit opportunity. Please try again.";
+      if (error && typeof error === "object" && "message" in error) {
+        errorMessage = (error as { message: string }).message;
       }
 
-      setErrors(prev => ({
+      setErrors((prev) => ({
         ...prev,
-        general: errorMessage
-      }))
-      
-      window.scrollTo(0, 0)
-    } finally {
-      setLoading(false)
-    }
-  }
+        general: errorMessage,
+      }));
 
-  const selectedCategory = categories.find(cat => cat.value === formData.category)
+      window.scrollTo(0, 0);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const selectedCategory = categories.find(
+    (cat) => cat.value === formData.category
+  );
 
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
-      
+
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="text-center space-y-4 mb-8">
@@ -217,7 +255,8 @@ export default function SubmitOpportunity() {
             Submit an Opportunity
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Share an amazing opportunity with the community. Help fellow students discover their next big break.
+            Share an amazing opportunity with the community. Help fellow
+            students discover their next big break.
           </p>
         </div>
 
@@ -253,7 +292,7 @@ export default function SubmitOpportunity() {
               </p>
             </div>
           )}
-          
+
           {/* Basic Information */}
           <Card>
             <CardHeader>
@@ -269,18 +308,25 @@ export default function SubmitOpportunity() {
                 <Input
                   id="title"
                   value={formData.title}
-                  onChange={(e) => handleInputChange('title', e.target.value)}
+                  onChange={(e) => handleInputChange("title", e.target.value)}
                   placeholder="e.g., Google Summer Internship 2024"
-                  className={errors.title ? 'border-destructive' : ''}
+                  className={errors.title ? "border-destructive" : ""}
                 />
-                {errors.title && <p className="text-sm text-destructive">{errors.title}</p>}
+                {errors.title && (
+                  <p className="text-sm text-destructive">{errors.title}</p>
+                )}
               </div>
 
               {/* Category and Organization */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="category">Category *</Label>
-                  <Select value={formData.category} onValueChange={(value) => handleInputChange('category', value)}>
+                  <Select
+                    value={formData.category}
+                    onValueChange={(value) =>
+                      handleInputChange("category", value)
+                    }
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select category">
                         {selectedCategory && (
@@ -292,7 +338,7 @@ export default function SubmitOpportunity() {
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      {categories.map(category => (
+                      {categories.map((category) => (
                         <SelectItem key={category.value} value={category.value}>
                           <span className="flex items-center gap-2">
                             <span>{category.icon}</span>
@@ -309,11 +355,17 @@ export default function SubmitOpportunity() {
                   <Input
                     id="organization"
                     value={formData.organization}
-                    onChange={(e) => handleInputChange('organization', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("organization", e.target.value)
+                    }
                     placeholder="e.g., Google, Microsoft, Stanford University"
-                    className={errors.organization ? 'border-destructive' : ''}
+                    className={errors.organization ? "border-destructive" : ""}
                   />
-                  {errors.organization && <p className="text-sm text-destructive">{errors.organization}</p>}
+                  {errors.organization && (
+                    <p className="text-sm text-destructive">
+                      {errors.organization}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -324,21 +376,30 @@ export default function SubmitOpportunity() {
                   id="description"
                   rows={5}
                   value={formData.description}
-                  onChange={(e) => handleInputChange('description', e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange("description", e.target.value)
+                  }
                   placeholder="Provide a detailed description of the opportunity, what it involves, and what makes it special..."
-                  className={errors.description ? 'border-destructive' : ''}
+                  className={errors.description ? "border-destructive" : ""}
                 />
                 <div className="flex justify-between items-center">
                   <p className="text-sm text-muted-foreground">
                     {formData.description.length} characters (minimum 50)
                   </p>
                   {formData.description.length >= 50 && (
-                    <Badge variant="secondary" className="text-green-700 bg-green-100">
+                    <Badge
+                      variant="secondary"
+                      className="text-green-700 bg-green-100"
+                    >
                       ✓ Good length
                     </Badge>
                   )}
                 </div>
-                {errors.description && <p className="text-sm text-destructive">{errors.description}</p>}
+                {errors.description && (
+                  <p className="text-sm text-destructive">
+                    {errors.description}
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -359,7 +420,9 @@ export default function SubmitOpportunity() {
                   <Input
                     id="location"
                     value={formData.location}
-                    onChange={(e) => handleInputChange('location', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("location", e.target.value)
+                    }
                     placeholder="e.g., Remote, San Francisco, CA"
                   />
                 </div>
@@ -370,23 +433,31 @@ export default function SubmitOpportunity() {
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
-                        className={`w-full justify-start text-left font-normal ${!formData.deadline && "text-muted-foreground"} ${errors.deadline ? 'border-destructive' : ''}`}
+                        className={`w-full justify-start text-left font-normal ${
+                          !formData.deadline && "text-muted-foreground"
+                        } ${errors.deadline ? "border-destructive" : ""}`}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {formData.deadline ? format(formData.deadline, "PPP") : "Pick a date"}
+                        {formData.deadline
+                          ? format(formData.deadline, "PPP")
+                          : "Pick a date"}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
                       <Calendar
                         mode="single"
                         selected={formData.deadline}
-                        onSelect={(date) => handleInputChange('deadline', date)}
+                        onSelect={(date) => handleInputChange("deadline", date)}
                         disabled={(date) => date < new Date()}
                         initialFocus
                       />
                     </PopoverContent>
                   </Popover>
-                  {errors.deadline && <p className="text-sm text-destructive">{errors.deadline}</p>}
+                  {errors.deadline && (
+                    <p className="text-sm text-destructive">
+                      {errors.deadline}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -397,11 +468,17 @@ export default function SubmitOpportunity() {
                   id="application_url"
                   type="url"
                   value={formData.application_url}
-                  onChange={(e) => handleInputChange('application_url', e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange("application_url", e.target.value)
+                  }
                   placeholder="https://company.com/apply"
-                  className={errors.application_url ? 'border-destructive' : ''}
+                  className={errors.application_url ? "border-destructive" : ""}
                 />
-                {errors.application_url && <p className="text-sm text-destructive">{errors.application_url}</p>}
+                {errors.application_url && (
+                  <p className="text-sm text-destructive">
+                    {errors.application_url}
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -419,7 +496,13 @@ export default function SubmitOpportunity() {
                 <div key={index} className="flex gap-2">
                   <Input
                     value={requirement}
-                    onChange={(e) => handleArrayFieldChange('requirements', index, e.target.value)}
+                    onChange={(e) =>
+                      handleArrayFieldChange(
+                        "requirements",
+                        index,
+                        e.target.value
+                      )
+                    }
                     placeholder={`Requirement ${index + 1}`}
                     className="flex-1"
                   />
@@ -427,7 +510,7 @@ export default function SubmitOpportunity() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => removeArrayField('requirements', index)}
+                    onClick={() => removeArrayField("requirements", index)}
                     disabled={formData.requirements.length === 1}
                     className="px-3"
                   >
@@ -438,20 +521,29 @@ export default function SubmitOpportunity() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => addArrayField('requirements')}
+                onClick={() => addArrayField("requirements")}
                 className="w-full"
               >
                 <HiPlus className="w-4 h-4 mr-2" />
                 Add Requirement
               </Button>
-              {errors.requirements && <p className="text-sm text-destructive">{errors.requirements}</p>}
+              {errors.requirements && (
+                <p className="text-sm text-destructive">
+                  {errors.requirements}
+                </p>
+              )}
             </CardContent>
           </Card>
 
           {/* Benefits */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-xl">Benefits <span className="text-muted-foreground font-normal">(Optional)</span></CardTitle>
+              <CardTitle className="text-xl">
+                Benefits{" "}
+                <span className="text-muted-foreground font-normal">
+                  (Optional)
+                </span>
+              </CardTitle>
               <CardDescription>
                 What will participants gain from this opportunity?
               </CardDescription>
@@ -461,7 +553,9 @@ export default function SubmitOpportunity() {
                 <div key={index} className="flex gap-2">
                   <Input
                     value={benefit}
-                    onChange={(e) => handleArrayFieldChange('benefits', index, e.target.value)}
+                    onChange={(e) =>
+                      handleArrayFieldChange("benefits", index, e.target.value)
+                    }
                     placeholder={`Benefit ${index + 1}`}
                     className="flex-1"
                   />
@@ -469,7 +563,7 @@ export default function SubmitOpportunity() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => removeArrayField('benefits', index)}
+                    onClick={() => removeArrayField("benefits", index)}
                     disabled={formData.benefits.length === 1}
                     className="px-3"
                   >
@@ -480,7 +574,7 @@ export default function SubmitOpportunity() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => addArrayField('benefits')}
+                onClick={() => addArrayField("benefits")}
                 className="w-full"
               >
                 <HiPlus className="w-4 h-4 mr-2" />
@@ -497,9 +591,9 @@ export default function SubmitOpportunity() {
                   <p className="text-destructive">{errors.submit}</p>
                 </div>
               )}
-              
+
               <Separator className="mb-6" />
-              
+
               <div className="flex flex-col sm:flex-row justify-end gap-4">
                 <Button
                   type="button"
@@ -509,18 +603,14 @@ export default function SubmitOpportunity() {
                 >
                   Cancel
                 </Button>
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="sm:w-auto"
-                >
+                <Button type="submit" disabled={loading} className="sm:w-auto">
                   {loading ? (
                     <>
                       <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
                       Submitting...
                     </>
                   ) : (
-                    'Submit for Review'
+                    "Submit for Review"
                   )}
                 </Button>
               </div>
@@ -529,5 +619,5 @@ export default function SubmitOpportunity() {
         </form>
       </div>
     </div>
-  )
-} 
+  );
+}

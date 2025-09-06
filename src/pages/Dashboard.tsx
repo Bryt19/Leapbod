@@ -1,145 +1,177 @@
-import { useState, useEffect } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
-import { HiCheckCircle, HiClock, HiXCircle, HiPlus, HiBookmark, HiEye } from 'react-icons/hi'
-import Navigation from '../components/Navigation'
-import { useAuth } from '../contexts/AuthContext'
-import { supabase } from '../lib/supabase'
-import type { Opportunity } from '../types/database.types'
-import { Button } from '../components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
-import { Badge } from '../components/ui/badge'
-import { Separator } from '../components/ui/separator'
+import { useState, useEffect } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import {
+  HiCheckCircle,
+  HiClock,
+  HiXCircle,
+  HiPlus,
+  HiBookmark,
+  HiEye,
+} from "react-icons/hi";
+import Navigation from "../components/Navigation";
+import { useAuth } from "../contexts/AuthContext";
+import { supabase } from "../lib/supabase";
+import type { Opportunity } from "../types/database.types";
+import { Button } from "../components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import { Badge } from "../components/ui/badge";
+import { Separator } from "../components/ui/separator";
 
 interface BookmarkWithOpportunity {
-  opportunity_id: string
-  opportunities: Opportunity
+  opportunity_id: string;
+  opportunities: Opportunity;
 }
 
 export default function Dashboard() {
-  const { user, loading: authLoading } = useAuth()
-  const [searchParams, setSearchParams] = useSearchParams()
-  const [submittedOpportunities, setSubmittedOpportunities] = useState<Opportunity[]>([])
-  const [bookmarkedOpportunities, setBookmarkedOpportunities] = useState<Opportunity[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const showSuccess = searchParams.get('submitted') === 'true'
+  const { user, loading: authLoading } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [submittedOpportunities, setSubmittedOpportunities] = useState<
+    Opportunity[]
+  >([]);
+  const [bookmarkedOpportunities, setBookmarkedOpportunities] = useState<
+    Opportunity[]
+  >([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const showSuccess = searchParams.get("submitted") === "true";
 
   useEffect(() => {
-    console.log('Dashboard useEffect triggered. Auth loading:', authLoading, 'User:', user?.id)
-    
+    console.log(
+      "Dashboard useEffect triggered. Auth loading:",
+      authLoading,
+      "User:",
+      user?.id
+    );
+
     // Wait for auth to finish loading before making decisions
     if (authLoading) {
-      console.log('Still loading auth...')
-      return
+      console.log("Still loading auth...");
+      return;
     }
 
     if (user) {
-      console.log('User found, fetching data...')
-      fetchUserData()
+      console.log("User found, fetching data...");
+      fetchUserData();
     } else {
-      console.log('No user found, stopping loading')
-      setLoading(false)
+      console.log("No user found, stopping loading");
+      setLoading(false);
     }
-    
+
     if (showSuccess) {
       const timer = setTimeout(() => {
-        setSearchParams({})
-      }, 5000)
-      return () => clearTimeout(timer)
+        setSearchParams({});
+      }, 5000);
+      return () => clearTimeout(timer);
     }
-  }, [user, authLoading, showSuccess, setSearchParams])
+  }, [user, authLoading, showSuccess, setSearchParams]);
 
   const fetchUserData = async () => {
-    console.log('Fetching user data for:', user?.id)
-    setLoading(true)
-    setError(null)
-    
+    console.log("Fetching user data for:", user?.id);
+    setLoading(true);
+    setError(null);
+
     try {
-      console.log('Fetching submitted opportunities...')
+      console.log("Fetching submitted opportunities...");
       const { data: submitted, error: submittedError } = await supabase
-        .from('opportunities')
-        .select('*')
-        .eq('submitted_by', user?.id as string)
-        .order('created_at', { ascending: false })
+        .from("opportunities")
+        .select("*")
+        .eq("submitted_by", user?.id as string)
+        .order("created_at", { ascending: false });
 
       if (submittedError) {
-        console.error('Error fetching submitted opportunities:', submittedError)
-        throw submittedError
+        console.error(
+          "Error fetching submitted opportunities:",
+          submittedError
+        );
+        throw submittedError;
       }
 
-      console.log('Submitted opportunities:', submitted)
+      console.log("Submitted opportunities:", submitted);
 
-      console.log('Fetching bookmarks...')
+      console.log("Fetching bookmarks...");
       const { data: bookmarks, error: bookmarksError } = await supabase
-        .from('bookmarks')
-        .select(`
+        .from("bookmarks")
+        .select(
+          `
           opportunity_id,
           opportunities (*)
-        `)
-        .eq('user_id', user?.id as string)
+        `
+        )
+        .eq("user_id", user?.id as string);
 
       if (bookmarksError) {
-        console.error('Error fetching bookmarks:', bookmarksError)
-        throw bookmarksError
+        console.error("Error fetching bookmarks:", bookmarksError);
+        throw bookmarksError;
       }
 
-      console.log('Bookmarks:', bookmarks)
+      console.log("Bookmarks:", bookmarks);
 
-      setSubmittedOpportunities(submitted || [])
-      
-      const bookmarkedOppsList = (bookmarks as BookmarkWithOpportunity[])
-        ?.map(b => b.opportunities)
-        .filter(Boolean) || []
-      setBookmarkedOpportunities(bookmarkedOppsList)
-      
-      console.log('Data fetching completed successfully')
+      setSubmittedOpportunities(submitted || []);
+
+      const bookmarkedOppsList =
+        (bookmarks as BookmarkWithOpportunity[])
+          ?.map((b) => b.opportunities)
+          .filter(Boolean) || [];
+      setBookmarkedOpportunities(bookmarkedOppsList);
+
+      console.log("Data fetching completed successfully");
     } catch (error) {
-      console.error('Error fetching user data:', error)
-      setError('Failed to load dashboard data. Please try refreshing the page.')
+      console.error("Error fetching user data:", error);
+      setError(
+        "Failed to load dashboard data. Please try refreshing the page."
+      );
     } finally {
-      console.log('Setting loading to false')
-      setLoading(false)
+      console.log("Setting loading to false");
+      setLoading(false);
     }
-  }
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'approved':
-        return <HiCheckCircle className="w-5 h-5 text-green-500" />
-      case 'pending':
-        return <HiClock className="w-5 h-5 text-yellow-500" />
-      case 'rejected':
-        return <HiXCircle className="w-5 h-5 text-red-500" />
+      case "approved":
+        return <HiCheckCircle className="w-5 h-5 text-green-500" />;
+      case "pending":
+        return <HiClock className="w-5 h-5 text-yellow-500" />;
+      case "rejected":
+        return <HiXCircle className="w-5 h-5 text-red-500" />;
       default:
-        return <HiClock className="w-5 h-5 text-muted-foreground" />
+        return <HiClock className="w-5 h-5 text-muted-foreground" />;
     }
-  }
+  };
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'approved':
-        return 'Approved'
-      case 'pending':
-        return 'Under Review'
-      case 'rejected':
-        return 'Rejected'
+      case "approved":
+        return "Approved";
+      case "pending":
+        return "Under Review";
+      case "rejected":
+        return "Rejected";
       default:
-        return 'Unknown'
+        return "Unknown";
     }
-  }
+  };
 
-  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
+  const getStatusVariant = (
+    status: string
+  ): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
-      case 'approved':
-        return 'default'
-      case 'pending':
-        return 'secondary'
-      case 'rejected':
-        return 'destructive'
+      case "approved":
+        return "default";
+      case "pending":
+        return "secondary";
+      case "rejected":
+        return "destructive";
       default:
-        return 'outline'
+        return "outline";
     }
-  }
+  };
 
   // Show loading while auth is still loading
   if (authLoading) {
@@ -155,7 +187,7 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   // If user is not logged in, show login prompt
@@ -174,22 +206,20 @@ export default function Dashboard() {
                   You need to be signed in to view your dashboard.
                 </p>
                 <Button asChild size="lg">
-                  <Link to="/auth/login">
-                    Sign In
-                  </Link>
+                  <Link to="/auth/login">Sign In</Link>
                 </Button>
               </div>
             </CardContent>
           </Card>
         </div>
       </div>
-    )
+    );
   }
 
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
-      
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Success Message */}
         {showSuccess && (
@@ -202,7 +232,8 @@ export default function Dashboard() {
                     🎉 Opportunity Submitted Successfully!
                   </h3>
                   <p className="mt-1 text-sm text-green-800">
-                    Your opportunity has been submitted for review. You'll be notified once it's approved and live on the platform.
+                    Your opportunity has been submitted for review. You'll be
+                    notified once it's approved and live on the platform.
                   </p>
                 </div>
               </div>
@@ -220,12 +251,10 @@ export default function Dashboard() {
                   <h3 className="text-sm font-medium text-red-900">
                     Error Loading Dashboard
                   </h3>
-                  <p className="mt-1 text-sm text-red-800">
-                    {error}
-                  </p>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <p className="mt-1 text-sm text-red-800">{error}</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     className="mt-2"
                     onClick={() => fetchUserData()}
                   >
@@ -243,7 +272,8 @@ export default function Dashboard() {
             Welcome to Your Dashboard
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Track your submissions, manage your bookmarks, and discover your next opportunity
+            Track your submissions, manage your bookmarks, and discover your
+            next opportunity
           </p>
         </div>
 
@@ -272,13 +302,23 @@ export default function Dashboard() {
                       <span>Submit New Opportunity</span>
                     </Link>
                   </Button>
-                  <Button asChild variant="outline" size="lg" className="h-20 flex-col gap-2">
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="lg"
+                    className="h-20 flex-col gap-2"
+                  >
                     <Link to="/opportunities">
                       <HiEye className="w-6 h-6" />
                       <span>Browse All Opportunities</span>
                     </Link>
                   </Button>
-                  <Button asChild variant="outline" size="lg" className="h-20 flex-col gap-2">
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="lg"
+                    className="h-20 flex-col gap-2"
+                  >
                     <Link to="/opportunities">
                       <HiBookmark className="w-6 h-6" />
                       <span>Find New Bookmarks</span>
@@ -299,16 +339,25 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-sm text-muted-foreground">
-                    {submittedOpportunities.filter(o => o.status === 'pending').length} pending review
+                    {
+                      submittedOpportunities.filter(
+                        (o) => o.status === "pending"
+                      ).length
+                    }{" "}
+                    pending review
                   </div>
                 </CardContent>
               </Card>
-              
+
               <Card>
                 <CardHeader className="pb-2">
                   <CardDescription>Approved Opportunities</CardDescription>
                   <CardTitle className="text-3xl font-bold text-green-600">
-                    {submittedOpportunities.filter(o => o.status === 'approved').length}
+                    {
+                      submittedOpportunities.filter(
+                        (o) => o.status === "approved"
+                      ).length
+                    }
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -317,7 +366,7 @@ export default function Dashboard() {
                   </div>
                 </CardContent>
               </Card>
-              
+
               <Card>
                 <CardHeader className="pb-2">
                   <CardDescription>Saved Bookmarks</CardDescription>
@@ -340,7 +389,8 @@ export default function Dashboard() {
                   <div>
                     <CardTitle className="text-2xl">My Submissions</CardTitle>
                     <CardDescription>
-                      Opportunities you've submitted ({submittedOpportunities.length})
+                      Opportunities you've submitted (
+                      {submittedOpportunities.length})
                     </CardDescription>
                   </div>
                   {submittedOpportunities.length > 0 && (
@@ -363,7 +413,9 @@ export default function Dashboard() {
                       No submissions yet
                     </h3>
                     <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                      Share opportunities with the community by submitting them for review. Help fellow students discover amazing opportunities!
+                      Share opportunities with the community by submitting them
+                      for review. Help fellow students discover amazing
+                      opportunities!
                     </p>
                     <Button asChild size="lg">
                       <Link to="/submit">
@@ -384,8 +436,14 @@ export default function Dashboard() {
                                 <h3 className="text-lg font-semibold text-foreground">
                                   {opportunity.title}
                                 </h3>
-                                <Badge variant={getStatusVariant(opportunity.status || 'pending')}>
-                                  {getStatusText(opportunity.status || 'pending')}
+                                <Badge
+                                  variant={getStatusVariant(
+                                    opportunity.status || "pending"
+                                  )}
+                                >
+                                  {getStatusText(
+                                    opportunity.status || "pending"
+                                  )}
                                 </Badge>
                               </div>
                               <p className="text-muted-foreground line-clamp-2">
@@ -397,12 +455,15 @@ export default function Dashboard() {
                                 </Badge>
                                 <span>{opportunity.organization}</span>
                                 <span>
-                                  Submitted {new Date(opportunity.created_at || '').toLocaleDateString()}
+                                  Submitted{" "}
+                                  {new Date(
+                                    opportunity.created_at || ""
+                                  ).toLocaleDateString()}
                                 </span>
                               </div>
                             </div>
                             <div className="ml-6 flex items-center">
-                              {getStatusIcon(opportunity.status || 'pending')}
+                              {getStatusIcon(opportunity.status || "pending")}
                             </div>
                           </div>
                         </div>
@@ -418,9 +479,12 @@ export default function Dashboard() {
               <CardHeader>
                 <div className="flex justify-between items-center">
                   <div>
-                    <CardTitle className="text-2xl">Bookmarked Opportunities</CardTitle>
+                    <CardTitle className="text-2xl">
+                      Bookmarked Opportunities
+                    </CardTitle>
                     <CardDescription>
-                      Opportunities you've saved for later ({bookmarkedOpportunities.length})
+                      Opportunities you've saved for later (
+                      {bookmarkedOpportunities.length})
                     </CardDescription>
                   </div>
                   <Button asChild variant="outline">
@@ -441,7 +505,8 @@ export default function Dashboard() {
                       No bookmarks yet
                     </h3>
                     <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                      Start bookmarking opportunities that interest you to keep track of them and apply when you're ready.
+                      Start bookmarking opportunities that interest you to keep
+                      track of them and apply when you're ready.
                     </p>
                     <Button asChild size="lg">
                       <Link to="/opportunities">
@@ -452,37 +517,45 @@ export default function Dashboard() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {bookmarkedOpportunities.slice(0, 5).map((opportunity, index) => (
-                      <div key={opportunity.id}>
-                        {index > 0 && <Separator />}
-                        <div className="py-4">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1 space-y-3">
-                              <h3 className="text-lg font-semibold text-foreground">
-                                {opportunity.title}
-                              </h3>
-                              <p className="text-muted-foreground line-clamp-2">
-                                {opportunity.description}
-                              </p>
-                              <div className="flex items-center text-sm text-muted-foreground gap-4">
-                                <Badge variant="outline" className="capitalize">
-                                  {opportunity.category}
-                                </Badge>
-                                <span>{opportunity.organization}</span>
-                                {opportunity.deadline && (
-                                  <span>
-                                    Deadline: {new Date(opportunity.deadline).toLocaleDateString()}
-                                  </span>
-                                )}
+                    {bookmarkedOpportunities
+                      .slice(0, 5)
+                      .map((opportunity, index) => (
+                        <div key={opportunity.id}>
+                          {index > 0 && <Separator />}
+                          <div className="py-4">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1 space-y-3">
+                                <h3 className="text-lg font-semibold text-foreground">
+                                  {opportunity.title}
+                                </h3>
+                                <p className="text-muted-foreground line-clamp-2">
+                                  {opportunity.description}
+                                </p>
+                                <div className="flex items-center text-sm text-muted-foreground gap-4">
+                                  <Badge
+                                    variant="outline"
+                                    className="capitalize"
+                                  >
+                                    {opportunity.category}
+                                  </Badge>
+                                  <span>{opportunity.organization}</span>
+                                  {opportunity.deadline && (
+                                    <span>
+                                      Deadline:{" "}
+                                      {new Date(
+                                        opportunity.deadline
+                                      ).toLocaleDateString()}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                            <div className="ml-6 flex items-center">
-                              <HiBookmark className="w-5 h-5 text-blue-500" />
+                              <div className="ml-6 flex items-center">
+                                <HiBookmark className="w-5 h-5 text-blue-500" />
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
                     {bookmarkedOpportunities.length > 5 && (
                       <div className="text-center pt-4">
                         <Button asChild variant="outline">
@@ -500,5 +573,5 @@ export default function Dashboard() {
         )}
       </div>
     </div>
-  )
+  );
 }
