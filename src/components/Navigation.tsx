@@ -59,8 +59,8 @@ export default function Navigation() {
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Logo */}
+        <div className="flex justify-between h-16">
+          {/* Logo and main nav */}
           <div className="flex items-center">
             <Link to="/" className="flex-shrink-0 flex items-center">
               <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center mr-3">
@@ -70,32 +70,32 @@ export default function Navigation() {
               </div>
               <span className="text-xl font-bold text-foreground">Leapbod</span>
             </Link>
-          </div>
 
-          {/* Desktop navigation - Centered */}
-          <div className="hidden md:flex md:space-x-1">
-            {navigation.map((item) => {
-              const Icon = item.icon;
-              const isCurrent = isCurrentPage(item.href);
-              return (
-                <Button
-                  key={item.name}
-                  asChild
-                  variant={isCurrent ? "default" : "ghost"}
-                  className="relative"
-                >
-                  <Link to={item.href}>
-                    <Icon className="w-4 h-4 mr-2" />
-                    {item.name}
-                    {item.name === "Admin" && isAdmin && (
-                      <Badge variant="secondary" className="ml-2 text-xs">
-                        Admin
-                      </Badge>
-                    )}
-                  </Link>
-                </Button>
-              );
-            })}
+            {/* Desktop navigation */}
+            <div className="hidden md:ml-8 md:flex md:space-x-1">
+              {navigation.map((item) => {
+                const Icon = item.icon;
+                const isCurrent = isCurrentPage(item.href);
+                return (
+                  <Button
+                    key={item.name}
+                    asChild
+                    variant={isCurrent ? "default" : "ghost"}
+                    className="relative"
+                  >
+                    <Link to={item.href}>
+                      <Icon className="w-4 h-4 mr-2" />
+                      {item.name}
+                      {item.name === "Admin" && isAdmin && (
+                        <Badge variant="secondary" className="ml-2 text-xs">
+                          Admin
+                        </Badge>
+                      )}
+                    </Link>
+                  </Button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Desktop user menu */}
