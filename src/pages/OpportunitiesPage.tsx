@@ -37,6 +37,7 @@ export default function OpportunitiesPage() {
   const [sortBy, setSortBy] = useState<"newest" | "deadline" | "featured">(
     "newest"
   );
+  const [isFilterSticky, setIsFilterSticky] = useState(false);
 
   const categories = [
     { value: "all", label: "All Categories" },
@@ -68,6 +69,20 @@ export default function OpportunitiesPage() {
       setBookmarkedOpportunities([]);
     }
   }, [user, authLoading]);
+
+  // Handle scroll to detect when filter becomes sticky
+  useEffect(() => {
+    const handleScroll = () => {
+      const filterElement = document.querySelector("[data-filter-section]");
+      if (filterElement) {
+        const rect = filterElement.getBoundingClientRect();
+        setIsFilterSticky(rect.top <= 64); // 64px = 4rem (top-16)
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   const fetchOpportunities = async () => {
     console.log("Fetching opportunities...");
@@ -258,9 +273,18 @@ export default function OpportunitiesPage() {
       </div>
 
       {/* Filters Section */}
-      <div className="sticky top-16 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+      <div
+        data-filter-section
+        className={`sticky top-16 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b transition-all duration-200 ${
+          isFilterSticky ? "shadow-lg" : "shadow-sm"
+        }`}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <Card>
+          <Card
+            className={`transition-all duration-200 ${
+              isFilterSticky ? "shadow-md" : "shadow-sm"
+            }`}
+          >
             <CardContent className="p-4">
               <div className="flex flex-col lg:flex-row lg:items-center gap-4">
                 {/* Search Input */}
@@ -273,6 +297,12 @@ export default function OpportunitiesPage() {
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"
                   />
+                  {isFilterSticky && (
+                    <div
+                      className="absolute -top-2 -right-2 w-3 h-3 bg-primary rounded-full animate-pulse"
+                      title="Filter is sticky"
+                    ></div>
+                  )}
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-4">
@@ -455,7 +485,9 @@ export default function OpportunitiesPage() {
               <div>
                 <h2 className="text-2xl font-semibold text-foreground">
                   {filteredAndSortedOpportunities.length} Opportunit
-                  {filteredAndSortedOpportunities.length === 1 ? "y" : "ies"}{" "}
+                  {filteredAndSortedOpportunities.length === 1
+                    ? "y"
+                    : "ies"}{" "}
                   Found
                 </h2>
                 <p className="text-muted-foreground">

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   HiMenu,
@@ -25,6 +25,8 @@ export default function Navigation() {
   const { user, profile, isAdmin, signOut } = useAuth();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [isNavbarVisible, setIsNavbarVisible] = useState(true);
 
   const navigation = [
     { name: "Home", href: "/", icon: HiHome },
@@ -48,11 +50,53 @@ export default function Navigation() {
     }
   };
 
+  // Handle scroll to show/hide navbar and detect scroll state
+  useEffect(() => {
+    let lastScrollY = window.scrollY;
+    let ticking = false;
+
+    const handleScroll = () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          const currentScrollY = window.scrollY;
+
+          // Update scroll state
+          setIsScrolled(currentScrollY > 10);
+
+          // Show/hide navbar based on scroll direction
+          if (currentScrollY > lastScrollY && currentScrollY > 100) {
+            // Scrolling down and past 100px - hide navbar
+            setIsNavbarVisible(false);
+            setIsMobileMenuOpen(false); // Close mobile menu when hiding navbar
+          } else {
+            // Scrolling up or at top - show navbar
+            setIsNavbarVisible(true);
+          }
+
+          lastScrollY = currentScrollY;
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   return (
-    <nav className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
+    <nav
+      className={`sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border transition-all duration-300 ease-in-out ${
+        isNavbarVisible
+          ? "translate-y-0 opacity-100"
+          : "-translate-y-full opacity-0"
+      } ${
+        isScrolled ? "shadow-lg bg-background/98" : "shadow-sm bg-background/95"
+      }`}
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          {/* Logo and main nav */}
+        <div className="flex items-center justify-between h-16">
+          {/* Logo */}
           <div className="flex items-center">
             <Link to="/" className="flex-shrink-0 flex items-center">
               <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center mr-3">
@@ -62,32 +106,32 @@ export default function Navigation() {
               </div>
               <span className="text-xl font-bold text-foreground">Leapbod</span>
             </Link>
+          </div>
 
-            {/* Desktop navigation */}
-            <div className="hidden md:ml-8 md:flex md:space-x-1">
-              {navigation.map((item) => {
-                const Icon = item.icon;
-                const isCurrent = isCurrentPage(item.href);
-                return (
-                  <Button
-                    key={item.name}
-                    asChild
-                    variant={isCurrent ? "default" : "ghost"}
-                    className="relative"
-                  >
-                    <Link to={item.href}>
-                      <Icon className="w-4 h-4 mr-2" />
-                      {item.name}
-                      {item.name === "Admin" && isAdmin && (
-                        <Badge variant="secondary" className="ml-2 text-xs">
-                          Admin
-                        </Badge>
-                      )}
-                    </Link>
-                  </Button>
-                );
-              })}
-            </div>
+          {/* Centered Desktop navigation */}
+          <div className="hidden md:flex md:items-center md:space-x-1">
+            {navigation.map((item) => {
+              const Icon = item.icon;
+              const isCurrent = isCurrentPage(item.href);
+              return (
+                <Button
+                  key={item.name}
+                  asChild
+                  variant={isCurrent ? "default" : "ghost"}
+                  className="relative"
+                >
+                  <Link to={item.href}>
+                    <Icon className="w-4 h-4 mr-2" />
+                    {item.name}
+                    {item.name === "Admin" && isAdmin && (
+                      <Badge variant="secondary" className="ml-2 text-xs">
+                        Admin
+                      </Badge>
+                    )}
+                  </Link>
+                </Button>
+              );
+            })}
           </div>
 
           {/* Desktop user menu */}
