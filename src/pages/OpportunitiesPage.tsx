@@ -38,6 +38,7 @@ export default function OpportunitiesPage() {
     "newest"
   );
   const [isFilterSticky, setIsFilterSticky] = useState(false);
+  const [showCenteredFilter, setShowCenteredFilter] = useState(false);
 
   const categories = [
     { value: "all", label: "All Categories" },
@@ -70,13 +71,17 @@ export default function OpportunitiesPage() {
     }
   }, [user, authLoading]);
 
-  // Handle scroll to detect when filter becomes sticky
+  // Handle scroll to detect when filter becomes sticky and show centered filter
   useEffect(() => {
     const handleScroll = () => {
       const filterElement = document.querySelector("[data-filter-section]");
       if (filterElement) {
         const rect = filterElement.getBoundingClientRect();
-        setIsFilterSticky(rect.top <= 64); // 64px = 4rem (top-16)
+        const isSticky = rect.top <= 64; // 64px = 4rem (top-16)
+        setIsFilterSticky(isSticky);
+
+        // Show centered filter when scrolled down past the original filter position
+        setShowCenteredFilter(window.scrollY > 200);
       }
     };
 
@@ -361,6 +366,98 @@ export default function OpportunitiesPage() {
           </Card>
         </div>
       </div>
+
+      {/* Centered Filter Overlay */}
+      {showCenteredFilter && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/20 backdrop-blur-sm"
+            onClick={() => setShowCenteredFilter(false)}
+          ></div>
+
+          {/* Filter Container */}
+          <div className="relative bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border rounded-lg shadow-2xl p-6 max-w-4xl w-full mx-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowCenteredFilter(false)}
+              className="absolute top-2 right-2 h-8 w-8 p-0"
+            >
+              <HiXCircle className="h-4 w-4" />
+            </Button>
+            <Card className="shadow-lg">
+              <CardContent className="p-6">
+                <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+                  {/* Search Input */}
+                  <div className="relative flex-1 max-w-md">
+                    <HiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                    <Input
+                      type="text"
+                      placeholder="Search opportunities..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    {/* Category Filter */}
+                    <div className="flex items-center gap-2">
+                      <HiFilter className="text-muted-foreground w-4 h-4" />
+                      <Select
+                        value={selectedCategory}
+                        onValueChange={setSelectedCategory}
+                      >
+                        <SelectTrigger className="w-48">
+                          <SelectValue placeholder="Category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories.map((category) => (
+                            <SelectItem
+                              key={category.value}
+                              value={category.value}
+                            >
+                              {category.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Sort Selection */}
+                    <Select
+                      value={sortBy}
+                      onValueChange={(
+                        value: "newest" | "deadline" | "featured"
+                      ) => setSortBy(value)}
+                    >
+                      <SelectTrigger className="w-48">
+                        <SelectValue placeholder="Sort by" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="newest">Newest First</SelectItem>
+                        <SelectItem value="deadline">Deadline Soon</SelectItem>
+                        <SelectItem value="featured">Featured First</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    {/* Submit Button */}
+                    {user && (
+                      <Button asChild>
+                        <Link to="/submit">
+                          <HiPlus className="w-4 h-4 mr-2" />
+                          Submit Opportunity
+                        </Link>
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
