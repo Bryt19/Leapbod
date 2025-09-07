@@ -10,7 +10,6 @@ import {
   HiLogout,
 } from "react-icons/hi";
 import { useAuth } from "../contexts/AuthContext";
-import { useScrollDirection } from "../hooks/useScrollDirection";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import {
@@ -26,7 +25,6 @@ export default function Navigation() {
   const { user, profile, isAdmin, signOut } = useAuth();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { scrollDirection, isScrolled } = useScrollDirection();
 
   const navigation = [
     { name: "Home", href: "/", icon: HiHome },
@@ -51,13 +49,7 @@ export default function Navigation() {
   };
 
   return (
-    <nav
-      className={`fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border transition-transform duration-300 ease-in-out ${
-        scrollDirection === "down" && isScrolled
-          ? "-translate-y-full"
-          : "translate-y-0"
-      }`}
-    >
+    <nav className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           {/* Logo and main nav */}

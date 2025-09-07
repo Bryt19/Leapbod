@@ -1,32 +1,34 @@
-# Leapbod
+# Leapbod 🚀
 
-A modern student opportunities platform that connects students with internships, scholarships, events, and other valuable opportunities. Built with React, TypeScript, and Supabase.
+A modern student opportunities platform that connects students with internships, scholarships, events, and career opportunities. Built with React, TypeScript, and Supabase.
 
-## 🌟 Features
+## ✨ Features
 
 - **Student Portal**: Discover and apply to approved opportunities
 - **Opportunity Submission**: Submit new opportunities for admin review
-- **Admin Dashboard**: Manage and moderate opportunity submissions
+- **Admin Dashboard**: Manage and moderate all submissions
 - **User Authentication**: Secure login and registration system
 - **Responsive Design**: Mobile-first, accessible interface
 - **Real-time Updates**: Live status tracking for submissions
 
-## 🚀 Tech Stack
+## 🛠️ Tech Stack
 
 - **Frontend**: React 19, TypeScript, Vite
-- **Styling**: Tailwind CSS, Radix UI components
+- **Styling**: Tailwind CSS, Radix UI Components
 - **Backend**: Supabase (PostgreSQL, Auth, Real-time)
 - **Forms**: React Hook Form with Zod validation
 - **Routing**: React Router DOM
 - **Icons**: Lucide React, React Icons
 
-## 📋 Prerequisites
+## 🚀 Getting Started
+
+### Prerequisites
 
 - Node.js 18+
 - npm or yarn
-- Supabase account and project
+- Supabase account
 
-## 🛠️ Installation
+### Installation
 
 1. Clone the repository
 
@@ -60,50 +62,37 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 npm run dev
 ```
 
-## 🗄️ Database Setup
+5. Open [http://localhost:5173](http://localhost:5173) in your browser
 
-Run the SQL scripts in the `database/` directory to set up your Supabase schema:
-
-1. `001_initial_schema.sql` - Creates the initial database structure
-2. `002_remove_images.sql` - Removes image-related columns
-
-## 📱 Usage
-
-### For Students
-
-- Register/Login to access the platform
-- Browse approved opportunities
-- Submit new opportunities for review
-- Track submission status
-- Apply to opportunities of interest
-
-### For Admins
-
-- Access the admin dashboard
-- Review pending opportunity submissions
-- Approve, reject, or edit opportunities
-- Manage user submissions
-
-## 🏗️ Project Structure
+## 📁 Project Structure
 
 ```
 src/
 ├── components/          # Reusable UI components
+│   ├── ui/             # Base UI components (shadcn/ui)
+│   └── ...             # Feature-specific components
 ├── contexts/           # React contexts (Auth, etc.)
-├── lib/               # Utility functions and configurations
-├── pages/             # Page components
-├── types/             # TypeScript type definitions
-└── assets/            # Static assets
+├── pages/              # Route components
+├── lib/                # Utilities and configurations
+├── types/              # TypeScript type definitions
+└── assets/             # Static assets
 ```
 
-## 🚀 Deployment
+## 🔧 Available Scripts
 
-The project is configured for deployment on Vercel. Simply connect your repository and deploy:
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build
+- `npm run lint` - Run ESLint
 
-```bash
-npm run build
-```
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## 📄 License
 
-This project is licensed under the MIT License.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
