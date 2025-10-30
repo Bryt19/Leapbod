@@ -4,13 +4,20 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import type { Opportunity } from '../types/database.types'
 import OpportunityCard from './OpportunityCard'
+import { getCache, setCache } from '../lib/utils'
 
 const FeaturedOpportunities = () => {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    const cached = getCache<Opportunity[]>("featured:v1")
+    if (cached && cached.length) {
+      setOpportunities(cached)
+      setLoading(false)
+    }
     fetchFeaturedOpportunities()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const fetchFeaturedOpportunities = async () => {
@@ -25,6 +32,7 @@ const FeaturedOpportunities = () => {
 
       if (error) throw error
       setOpportunities(data || [])
+      if (data && data.length) setCache("featured:v1", data, 120_000)
     } catch (error) {
       console.error('Error fetching featured opportunities:', error)
     } finally {

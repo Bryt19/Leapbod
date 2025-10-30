@@ -23,6 +23,7 @@ import {
 } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { Separator } from "../components/ui/separator";
+import { getCache, setCache } from "../lib/utils";
 
 export default function OpportunitiesPage() {
   const { user, loading: authLoading } = useAuth();
@@ -57,7 +58,12 @@ export default function OpportunitiesPage() {
       user?.id
     );
 
-    // Always fetch opportunities, regardless of auth state
+    // Hydrate fast from cache then refresh
+    const cached = getCache<Opportunity[]>("opportunities:v1");
+    if (cached && cached.length) {
+      setOpportunities(cached);
+      setLoading(false);
+    }
     fetchOpportunities();
 
     // Only fetch bookmarks if user is authenticated and auth is not loading
@@ -92,6 +98,7 @@ export default function OpportunitiesPage() {
 
       console.log("Fetched opportunities:", data?.length, "items");
       setOpportunities(data || []);
+      if (data && data.length) setCache("opportunities:v1", data, 120_000);
     } catch (error) {
       console.error("Error fetching opportunities:", error);
       setError("Failed to load opportunities. Please try refreshing the page.");

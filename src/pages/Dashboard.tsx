@@ -22,6 +22,7 @@ import {
 } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { Separator } from "../components/ui/separator";
+import { getCache, setCache } from "../lib/utils";
 
 interface BookmarkWithOpportunity {
   opportunity_id: string;
@@ -56,7 +57,17 @@ export default function Dashboard() {
     }
 
     if (user) {
-      console.log("User found, fetching data...");
+      console.log("User found, hydrating from cache and fetching data...");
+      // Fast hydration from cache
+      const subKey = `dash:${user.id}:submitted:v1`;
+      const bmKey = `dash:${user.id}:bookmarks:v1`;
+      const cachedSubmitted = getCache<Opportunity[]>(subKey);
+      const cachedBookmarks = getCache<Opportunity[]>(bmKey);
+      if ((cachedSubmitted && cachedSubmitted.length) || (cachedBookmarks && cachedBookmarks.length)) {
+        if (cachedSubmitted) setSubmittedOpportunities(cachedSubmitted);
+        if (cachedBookmarks) setBookmarkedOpportunities(cachedBookmarks);
+        setLoading(false);
+      }
       fetchUserData();
     } else {
       console.log("No user found, stopping loading");
@@ -96,11 +107,14 @@ export default function Dashboard() {
       if (bookmarksRes.error) throw bookmarksRes.error;
 
       setSubmittedOpportunities(submittedRes.data || []);
+      // cache submitted
+      if (user?.id) setCache(`dash:${user.id}:submitted:v1`, submittedRes.data || [], 120_000);
       const bookmarkedOppsList =
         (bookmarksRes.data as BookmarkWithOpportunity[])
           ?.map((b) => b.opportunities)
           .filter(Boolean) || [];
       setBookmarkedOpportunities(bookmarkedOppsList);
+      if (user?.id) setCache(`dash:${user.id}:bookmarks:v1`, bookmarkedOppsList, 120_000);
 
       console.log("Data fetching completed successfully");
     } catch (error) {
