@@ -1,6 +1,6 @@
-import { Navigate, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
+import { Dialog, DialogContent } from './ui/dialog'
 import { FcGoogle } from 'react-icons/fc'
 
 interface ProtectedRouteProps {
