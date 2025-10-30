@@ -77,45 +77,27 @@ export default function Dashboard() {
     setError(null);
 
     try {
-      console.log("Fetching submitted opportunities...");
-      const { data: submitted, error: submittedError } = await supabase
-        .from("opportunities")
-        .select("*")
-        .eq("submitted_by", user?.id as string)
-        .order("created_at", { ascending: false });
+      console.log("Fetching submitted + bookmarks in parallel...");
+      const [submittedRes, bookmarksRes] = await Promise.all([
+        supabase
+          .from("opportunities")
+          .select("*")
+          .eq("submitted_by", user?.id as string)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("bookmarks")
+          .select(
+            `opportunity_id, opportunities (*)`
+          )
+          .eq("user_id", user?.id as string),
+      ]);
 
-      if (submittedError) {
-        console.error(
-          "Error fetching submitted opportunities:",
-          submittedError
-        );
-        throw submittedError;
-      }
+      if (submittedRes.error) throw submittedRes.error;
+      if (bookmarksRes.error) throw bookmarksRes.error;
 
-      console.log("Submitted opportunities:", submitted);
-
-      console.log("Fetching bookmarks...");
-      const { data: bookmarks, error: bookmarksError } = await supabase
-        .from("bookmarks")
-        .select(
-          `
-          opportunity_id,
-          opportunities (*)
-        `
-        )
-        .eq("user_id", user?.id as string);
-
-      if (bookmarksError) {
-        console.error("Error fetching bookmarks:", bookmarksError);
-        throw bookmarksError;
-      }
-
-      console.log("Bookmarks:", bookmarks);
-
-      setSubmittedOpportunities(submitted || []);
-
+      setSubmittedOpportunities(submittedRes.data || []);
       const bookmarkedOppsList =
-        (bookmarks as BookmarkWithOpportunity[])
+        (bookmarksRes.data as BookmarkWithOpportunity[])
           ?.map((b) => b.opportunities)
           .filter(Boolean) || [];
       setBookmarkedOpportunities(bookmarkedOppsList);
