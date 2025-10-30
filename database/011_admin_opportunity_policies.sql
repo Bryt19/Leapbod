@@ -22,4 +22,14 @@ USING (
   )
 );
 
+-- DELETE any opportunity if the current user is an admin
+DROP POLICY IF EXISTS "Admins can delete any opportunity" ON opportunities;
+CREATE POLICY "Admins can delete any opportunity"
+ON opportunities FOR DELETE
+USING (
+  EXISTS (
+    SELECT 1 FROM profiles p
+    WHERE p.id = auth.uid() AND p.role = 'admin'
+  )
+);
 

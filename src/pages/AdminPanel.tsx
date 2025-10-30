@@ -42,6 +42,7 @@ import {
   TableRow,
 } from "../components/ui/table";
 import { Textarea } from "../components/ui/textarea";
+import { getCache, setCache } from "../lib/utils";
 import {
   HiSearch,
   HiCheck,
@@ -100,17 +101,23 @@ export default function AdminPanel() {
   const [opportunityFilter, setOpportunityFilter] = useState("all");
 
   useEffect(() => {
-    fetchData();
+    // Only fetch what's needed for the initial tab (overview stats)
+    fetchStats();
+    // Hydrate caches for other tabs to speed up first render
+    const profCache = getCache<Profile[]>("admin:profiles:v1");
+    if (profCache) setProfiles(profCache);
+    const oppCache = getCache<Opportunity[]>("admin:opps:v1");
+    if (oppCache) setOpportunities(oppCache);
   }, []);
 
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      await Promise.all([fetchProfiles(), fetchOpportunities(), fetchStats()]);
-    } finally {
-      setLoading(false);
+  // Lazy fetch per tab
+  useEffect(() => {
+    if (activeTab === "users") {
+      fetchProfiles();
+    } else if (activeTab === "opportunities") {
+      fetchOpportunities();
     }
-  };
+  }, [activeTab]);
 
   const fetchStats = async () => {
     try {
@@ -146,29 +153,38 @@ export default function AdminPanel() {
 
   const fetchProfiles = async () => {
     try {
+      setLoading(true);
       const { data, error } = await supabase
         .from("profiles")
-        .select("*")
+        .select("id, full_name, email, role, created_at")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
       setProfiles(data || []);
+      if (data) setCache("admin:profiles:v1", data, 120_000);
     } catch (error) {
       console.error("Error fetching profiles:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
   const fetchOpportunities = async () => {
     try {
+      setLoading(true);
       const { data, error } = await supabase
         .from("opportunities")
-        .select("*")
-        .order("created_at", { ascending: false });
+        .select("id, title, organization, category, status, created_at")
+        .order("created_at", { ascending: false })
+        .limit(200);
 
       if (error) throw error;
       setOpportunities(data || []);
+      if (data) setCache("admin:opps:v1", data, 120_000);
     } catch (error) {
       console.error("Error fetching opportunities:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -218,15 +234,30 @@ export default function AdminPanel() {
         });
       }
 
+      // Clear public caches so approved opportunities appear immediately
+      localStorage.removeItem("opportunities:v1");
+      localStorage.removeItem("featured:v1");
       await fetchOpportunities();
     } catch (error) {
       console.error("Error updating opportunity status:", error);
+      alert(error instanceof Error ? error.message : "Failed to update opportunity status");
     } finally {
       setUpdating(null);
     }
   };
 
-  const handleViewDetails = (item: DetailItem) => {
+  const handleViewDetails = async (item: DetailItem) => {
+    // For opportunities, fetch full row before showing details to avoid selecting * upfront
+    if (isOpportunity(item)) {
+      try {
+        const { data, error } = await supabase
+          .from("opportunities")
+          .select("*")
+          .eq("id", item.id)
+          .single();
+        if (!error && data) item = data;
+      } catch {}
+    }
     setSelectedItem(item);
     setDialogMode("view");
     setShowDetailsDialog(true);
@@ -315,6 +346,10 @@ export default function AdminPanel() {
         throw error;
       }
 
+      // Clear caches so deleted opportunities disappear immediately
+      localStorage.removeItem("opportunities:v1");
+      localStorage.removeItem("featured:v1");
+      localStorage.removeItem("admin:opps:v1");
       await fetchOpportunities();
       setShowDetailsDialog(false);
       setDialogMode("view");
