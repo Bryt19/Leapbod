@@ -8,6 +8,8 @@ import {
   HiUser,
   HiCog,
   HiLogout,
+  HiMoon,
+  HiSun,
 } from "react-icons/hi";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "./ui/button";
@@ -27,6 +29,11 @@ export default function Navigation() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isNavbarVisible, setIsNavbarVisible] = useState(true);
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const stored = localStorage.getItem('theme');
+    if (stored === 'dark' || stored === 'light') return stored;
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
 
   const navigation = [
     { name: "Home", href: "/", icon: HiHome },
@@ -49,6 +56,15 @@ export default function Navigation() {
       console.error("Error signing out:", error);
     }
   };
+
+  // Handle scroll to show/hide navbar and detect scroll state
+  useEffect(() => {
+    // Apply theme class to root
+    const root = document.documentElement;
+    if (theme === 'dark') root.classList.add('dark');
+    else root.classList.remove('dark');
+    localStorage.setItem('theme', theme);
+  }, [theme]);
 
   // Handle scroll to show/hide navbar and detect scroll state
   useEffect(() => {
@@ -83,6 +99,8 @@ export default function Navigation() {
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
 
   return (
     <nav
@@ -201,10 +219,28 @@ export default function Navigation() {
                 </Button>
               </div>
             )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={toggleTheme}
+              aria-label="Toggle theme"
+            >
+              {theme === 'dark' ? <HiSun className="h-4 w-4" /> : <HiMoon className="h-4 w-4" />}
+            </Button>
           </div>
 
           {/* Mobile menu button */}
           <div className="md:hidden flex items-center">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleTheme}
+              className="p-2 mr-1"
+              aria-label="Toggle theme"
+            >
+              {theme === 'dark' ? <HiSun className="h-5 w-5" /> : <HiMoon className="h-5 w-5" />}
+            </Button>
             <Button
               variant="ghost"
               size="sm"

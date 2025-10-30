@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import type { User, Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import type { Profile } from "../types/database.types";
@@ -18,14 +18,16 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  const [loading, setLoading] = useState(false);
+  // Removed global initial load gating to avoid blocking UI
 
   useEffect(() => {
     let mounted = true;
+    // Do not block UI globally; we only track session in background
 
     // Get initial session
     const getInitialSession = async () => {
@@ -69,11 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (error) {
         console.error("AuthContext: Error in getInitialSession:", error);
       } finally {
-        if (mounted) {
-          console.log("AuthContext: Setting initial load complete");
-          setInitialLoadComplete(true);
-          setLoading(false);
-        }
+        // no-op
       }
     };
 
@@ -107,19 +105,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
           await handleUserSignIn(session.user);
           console.log("AuthContext: Sign in handling complete");
-          // Redirect to dashboard after successful sign in
-          navigate("/dashboard");
+          // Only redirect away from auth pages; otherwise keep current route or restore lastPath
+          const isAuthPage = location.pathname === "/auth/login" || location.pathname === "/auth/callback";
+          if (isAuthPage) {
+            const lastPath = localStorage.getItem("lastPath");
+            navigate(lastPath || "/dashboard");
+          }
         } catch (error) {
           console.error("AuthContext: Error handling user sign in:", error);
         } finally {
-          setInitialLoadComplete(true);
+          setLoading(false);
         }
       } else if (event === "SIGNED_OUT") {
         console.log("AuthContext: User signed out");
         setProfile(null);
-        setInitialLoadComplete(true);
+        setLoading(false);
       } else {
-        setInitialLoadComplete(true);
+        setLoading(false);
       }
     });
 
@@ -174,6 +176,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (existingProfile) {
         console.log("AuthContext: Found existing profile:", existingProfile);
+        // Ensure admin stays in sync with email rule
+        const normalizedEmail = (user.email || "").toLowerCase();
+        const shouldBeAdmin = normalizedEmail === "leapboard5@gmail.com";
+        if ((shouldBeAdmin && existingProfile.role !== "admin") || (!shouldBeAdmin && existingProfile.role !== "student")) {
+          const { data: updated, error: updateError } = await supabase
+            .from("profiles")
+            .update({ role: shouldBeAdmin ? "admin" : "student", email: user.email || existingProfile.email })
+            .eq("id", user.id)
+            .select()
+            .single();
+          if (updateError) {
+            console.error("AuthContext: Error updating profile role:", updateError);
+            setProfile(existingProfile);
+            return;
+          }
+          setProfile(updated);
+          return;
+        }
         setProfile(existingProfile);
         return;
       }
@@ -182,12 +202,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         "AuthContext: No existing profile found, creating new one..."
       );
 
-      // Only leapboard5@gmail.com should be admin, all others are students
-      const role = user.email === "leapboard5@gmail.com" ? "admin" : "student";
+      // Only leapboard5@gmail.com should be admin (case-insensitive), all others are students
+      const normalizedEmail = (user.email || "").toLowerCase();
+      const desiredRole = normalizedEmail === "leapboard5@gmail.com" ? "admin" : "student";
 
       console.log(
         "AuthContext: Creating new profile with role:",
-        role,
+        desiredRole,
         "for email:",
         user.email
       );
@@ -197,7 +218,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .from("profiles")
         .insert({
           id: user.id,
-          role: role,
+          role: desiredRole,
+          email: user.email || null,
         })
         .select()
         .single();
@@ -216,7 +238,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithGoogle = async () => {
     try {
-      setLoading(true);
+      // Do not globally block UI during OAuth redirect
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
@@ -240,7 +262,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { error } = await supabase.auth.signOut();
       if (error) {
         console.error("Error signing out:", error);
-        throw error;
       }
 
       // Clear local state
@@ -248,11 +269,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setProfile(null);
       setSession(null);
 
-      // Clear localStorage
+      // Preserve theme; remove app-specific keys
+      const theme = localStorage.getItem("theme");
       localStorage.clear();
+      if (theme) localStorage.setItem("theme", theme);
 
-      // Redirect to homepage
-      navigate("/");
+      // Redirect to homepage and replace history entry
+      navigate("/", { replace: true });
+      // Hard redirect fallback to guarantee navigation
+      setTimeout(() => {
+        if (window.location.pathname !== "/") {
+          window.location.assign("/");
+        }
+      }, 50);
     } catch (error) {
       console.error("Error signing out:", error);
       throw error;
@@ -261,22 +290,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const isAdmin = profile?.role === "admin";
+  const isAdmin =
+    (user?.email || "").toLowerCase() === "leapboard5@gmail.com" ||
+    profile?.role === "admin";
 
-  // Only show loading screen during initial app load, not during auth state changes
-  if (!initialLoadComplete && loading) {
-    console.log(
-      "AuthContext: Initial app load in progress, showing loading screen"
-    );
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="text-muted-foreground">Loading application...</p>
-        </div>
-      </div>
-    );
-  }
+  // Do not globally block rendering; pages handle their own loading
 
   console.log(
     "AuthContext: Rendering app with user:",

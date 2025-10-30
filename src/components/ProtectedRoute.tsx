@@ -1,5 +1,7 @@
-import { Navigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
+import { FcGoogle } from 'react-icons/fc'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
@@ -7,9 +9,10 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
-  const { user, profile, loading } = useAuth()
+  const { user, profile, loading, signInWithGoogle } = useAuth()
+  const navigate = useNavigate()
 
-  // Show loading spinner while checking authentication
+  // Show loading spinner only while checking authentication
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -21,18 +24,79 @@ export default function ProtectedRoute({ children, requireAdmin = false }: Prote
     )
   }
 
-  // Redirect to login if not authenticated
+  // Prompt sign-in via modal if not authenticated (keep user on page)
   if (!user) {
-    return <Navigate to="/auth/login" replace />
+    return (
+      <>
+        <div className="min-h-screen bg-background/80" />
+        <Dialog open onOpenChange={(open) => { if (!open) navigate('/') }}>
+          <DialogContent className="sm:max-w-md p-0 overflow-hidden">
+            <div className="p-6 bg-card">
+              {/* Brand */}
+              <div className="text-center">
+                <h1 className="text-3xl font-bold text-foreground">
+                  Leap<span className="text-blue-600">bod</span>
+                </h1>
+                <p className="text-muted-foreground mt-1">Discover amazing opportunities</p>
+              </div>
+
+              {/* Headline */}
+              <div className="mt-6 text-center">
+                <h2 className="text-2xl font-semibold text-foreground">Welcome back</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Sign in to access your dashboard</p>
+              </div>
+
+              {/* Google button */}
+              <div className="mt-6">
+                <button
+                  onClick={() => { void signInWithGoogle() }}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-md px-4 py-2.5 border border-border bg-background hover:bg-muted transition text-foreground"
+                >
+                  <FcGoogle className="h-5 w-5" />
+                  Continue with Google
+                </button>
+              </div>
+
+              {/* Terms */}
+              <p className="mt-3 text-center text-xs text-muted-foreground">
+                By signing in, you agree to our <a className="text-blue-600 hover:underline" href="#">Terms of Service</a> and <a className="text-blue-600 hover:underline" href="#">Privacy Policy</a>
+              </p>
+
+              {/* Info panel */}
+              <div className="mt-6 rounded-lg border border-border bg-background/60 p-4">
+                <h3 className="text-sm font-medium text-foreground mb-1">🎓 Student Platform</h3>
+                <p className="text-sm text-muted-foreground">
+                  Discover internships, scholarships, competitions, and research opportunities tailored for students.
+                </p>
+              </div>
+
+              {/* Back */}
+              <button
+                onClick={() => navigate('/')}
+                className="mt-4 w-full inline-flex items-center justify-center rounded-md px-4 py-2 border border-border text-foreground hover:bg-muted transition"
+              >
+                Go back home
+              </button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </>
+    )
   }
 
-  // Redirect to login if profile doesn't exist
-  if (!profile) {
-    return <Navigate to="/auth/login" replace />
-  }
-
-  // Check admin requirement
-  if (requireAdmin && profile.role !== 'admin') {
+  // Admin routes: wait for profile to resolve, then check role
+  if (requireAdmin) {
+    if (!profile) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading...</p>
+          </div>
+        </div>
+      )
+    }
+    if (profile.role !== 'admin') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="max-w-md w-full text-center">
@@ -58,6 +122,7 @@ export default function ProtectedRoute({ children, requireAdmin = false }: Prote
         </div>
       </div>
     )
+    }
   }
 
   return <>{children}</>

@@ -17,7 +17,7 @@ const FeaturedOpportunities = () => {
     try {
       const { data, error } = await supabase
         .from('opportunities')
-        .select('*')
+        .select('id,title,category,deadline,location,organization,description,application_url,featured,status,views_count,applications_count,created_at,updated_at,submitted_by,requirements,benefits')
         .eq('status', 'approved')
         .eq('featured', true)
         .order('created_at', { ascending: false })
@@ -95,12 +95,12 @@ const FeaturedOpportunities = () => {
   const displayOpportunities = opportunities.length > 0 ? opportunities : fallbackData
 
   return (
-    <section className="py-20 bg-white" id="opportunities">
+    <section className="py-20 bg-background border-y border-border" id="opportunities">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center mb-12">
           <div>
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">Featured Opportunities</h2>
-            <p className="text-gray-600">Hand-picked opportunities waiting for you</p>
+            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-2">Featured Opportunities</h2>
+            <p className="text-muted-foreground">Hand-picked opportunities waiting for you</p>
           </div>
           <Link 
             to="/opportunities" 
@@ -114,19 +114,19 @@ const FeaturedOpportunities = () => {
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {Array.from({ length: 3 }).map((_, index) => (
-              <div key={index} className="bg-white border border-gray-200 rounded-2xl p-6 animate-pulse">
+              <div key={index} className="bg-card border border-border rounded-2xl p-6 animate-pulse">
                 <div className="flex justify-between items-start mb-4">
-                  <div className="h-6 w-20 bg-gray-200 rounded-full"></div>
-                  <div className="h-4 w-12 bg-gray-200 rounded"></div>
+                  <div className="h-6 w-20 bg-muted rounded-full"></div>
+                  <div className="h-4 w-12 bg-muted rounded"></div>
                 </div>
-                <div className="h-6 w-full bg-gray-200 rounded mb-2"></div>
-                <div className="h-4 w-3/4 bg-gray-200 rounded mb-2"></div>
-                <div className="h-16 w-full bg-gray-200 rounded mb-4"></div>
+                <div className="h-6 w-full bg-muted rounded mb-2"></div>
+                <div className="h-4 w-3/4 bg-muted rounded mb-2"></div>
+                <div className="h-16 w-full bg-muted rounded mb-4"></div>
                 <div className="flex justify-between mb-6">
-                  <div className="h-4 w-24 bg-gray-200 rounded"></div>
-                  <div className="h-4 w-20 bg-gray-200 rounded"></div>
+                  <div className="h-4 w-24 bg-muted rounded"></div>
+                  <div className="h-4 w-20 bg-muted rounded"></div>
                 </div>
-                <div className="h-12 w-full bg-gray-200 rounded"></div>
+                <div className="h-12 w-full bg-muted rounded"></div>
               </div>
             ))}
           </div>

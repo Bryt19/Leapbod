@@ -1,4 +1,5 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { useEffect } from "react";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import HomePage from "./pages/HomePage";
 import Login from "./pages/Login";
 import AuthCallback from "./pages/AuthCallback";
@@ -9,9 +10,21 @@ import SubmitOpportunity from "./pages/SubmitOpportunity";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
+function RouteTracker() {
+  const location = useLocation();
+  useEffect(() => {
+    const p = location.pathname + (location.search || "");
+    if (p !== "/auth/login" && p !== "/auth/callback") {
+      localStorage.setItem("lastPath", p);
+    }
+  }, [location]);
+  return null;
+}
+
 function App() {
   return (
     <div className="App">
+      <RouteTracker />
       <Routes>
         {/* Public routes */}
         <Route path="/" element={<HomePage />} />
@@ -23,7 +36,9 @@ function App() {
           path="/opportunities"
           element={
             <ErrorBoundary>
-              <OpportunitiesPage />
+              <ProtectedRoute>
+                <OpportunitiesPage />
+              </ProtectedRoute>
             </ErrorBoundary>
           }
         />

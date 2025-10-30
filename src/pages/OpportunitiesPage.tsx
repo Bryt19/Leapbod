@@ -37,6 +37,7 @@ export default function OpportunitiesPage() {
   const [sortBy, setSortBy] = useState<"newest" | "deadline" | "featured">(
     "newest"
   );
+  const [showAll, setShowAll] = useState(false);
 
   const categories = [
     { value: "all", label: "All Categories" },
@@ -77,9 +78,12 @@ export default function OpportunitiesPage() {
     try {
       const { data, error } = await supabase
         .from("opportunities")
-        .select("*")
+        .select(
+          "id,title,category,deadline,location,organization,description,application_url,featured,status,views_count,applications_count,created_at,updated_at"
+        )
         .eq("status", "approved")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(24);
 
       if (error) {
         console.error("Error fetching opportunities:", error);
@@ -174,6 +178,10 @@ export default function OpportunitiesPage() {
           );
       }
     });
+
+  const visibleOpportunities = showAll
+    ? filteredAndSortedOpportunities
+    : filteredAndSortedOpportunities.slice(0, 6);
 
   return (
     <div className="min-h-screen bg-background">
@@ -486,7 +494,7 @@ export default function OpportunitiesPage() {
 
             {/* Opportunities Grid */}
             <div className="grid gap-6 grid-cols-1 md:grid-cols-3">
-              {filteredAndSortedOpportunities.map((opportunity, index) => (
+              {visibleOpportunities.map((opportunity, index) => (
                 <div
                   key={opportunity.id}
                   className="animate-in fade-in slide-in-from-bottom-4 duration-500"
@@ -506,12 +514,24 @@ export default function OpportunitiesPage() {
               ))}
             </div>
 
-            {/* Load More Section */}
-            {filteredAndSortedOpportunities.length >= 12 && (
-              <div className="text-center pt-8">
-                <p className="text-muted-foreground mb-4">
-                  Showing {filteredAndSortedOpportunities.length} opportunities
+            {/* Show remaining button */}
+            {!showAll && filteredAndSortedOpportunities.length > 6 && (
+              <div className="text-center pt-4">
+                <Button size="lg" variant="default" onClick={() => setShowAll(true)}>
+                  Show remaining {filteredAndSortedOpportunities.length - 6}
+                </Button>
+              </div>
+            )}
+
+            {/* Load count */}
+            {showAll && (
+              <div className="text-center pt-6 space-y-3">
+                <p className="text-muted-foreground">
+                  Showing all {filteredAndSortedOpportunities.length} opportunities
                 </p>
+                <Button variant="outline" size="lg" onClick={() => setShowAll(false)}>
+                  View less
+                </Button>
               </div>
             )}
           </div>
