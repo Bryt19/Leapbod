@@ -156,7 +156,7 @@ export default function AdminPanel() {
       setLoading(true);
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, email, role, created_at")
+        .select("*")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -174,7 +174,7 @@ export default function AdminPanel() {
       setLoading(true);
       const { data, error } = await supabase
         .from("opportunities")
-        .select("id, title, organization, category, status, created_at")
+        .select("*")
         .order("created_at", { ascending: false })
         .limit(200);
 
