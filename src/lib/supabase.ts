@@ -13,5 +13,13 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true
+  },
+  global: {
+    headers: {
+      'x-client-info': 'leapbod-web'
+    }
+  },
+  db: {
+    schema: 'public'
   }
 }) 

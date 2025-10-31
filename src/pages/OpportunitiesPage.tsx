@@ -23,7 +23,7 @@ import {
 } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { Separator } from "../components/ui/separator";
-import { getCache, setCache } from "../lib/utils";
+import { getCache, setCache, dedupeRequest } from "../lib/utils";
 
 export default function OpportunitiesPage() {
   const { user, loading: authLoading } = useAuth();
@@ -78,20 +78,23 @@ export default function OpportunitiesPage() {
     setError(null);
 
     try {
-      const { data, error } = await supabase
-        .from("opportunities")
-        .select(
-          "id,title,category,deadline,location,organization,description,application_url,featured,status,views_count,applications_count,created_at,updated_at,benefits,requirements,submitted_by"
-        )
-        .eq("status", "approved")
-        .order("created_at", { ascending: false })
-        .limit(24);
+      const data = await dedupeRequest("fetch-opportunities", async () => {
+        const { data, error } = await supabase
+          .from("opportunities")
+          .select(
+            "id,title,category,deadline,location,organization,description,application_url,featured,status,views_count,applications_count,created_at,updated_at,benefits,requirements,submitted_by"
+          )
+          .eq("status", "approved")
+          .order("created_at", { ascending: false })
+          .limit(24);
 
-      if (error) {
-        throw error;
-      }
+        if (error) {
+          throw error;
+        }
+        return data || [];
+      });
 
-      setOpportunities(data || []);
+      setOpportunities(data);
       if (data && data.length) setCache("opportunities:v1", data, 120_000);
     } catch (error) {
       setError("Failed to load opportunities. Please try refreshing the page.");

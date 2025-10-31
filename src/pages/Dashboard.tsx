@@ -22,7 +22,7 @@ import {
 } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { Separator } from "../components/ui/separator";
-import { getCache, setCache } from "../lib/utils";
+import { getCache, setCache, dedupeRequest } from "../lib/utils";
 
 interface BookmarkWithOpportunity {
   opportunity_id: string;
@@ -84,32 +84,39 @@ export default function Dashboard() {
     setError(null);
 
     try {
-      const [submittedRes, bookmarksRes] = await Promise.all([
-        supabase
-          .from("opportunities")
-          .select("*")
-          .eq("submitted_by", user?.id as string)
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("bookmarks")
-          .select(
-            `opportunity_id, opportunities (*)`
-          )
-          .eq("user_id", user?.id as string),
-      ]);
+      const data = await dedupeRequest(`fetch-dashboard-${user?.id}`, async () => {
+        const [submittedRes, bookmarksRes] = await Promise.all([
+          supabase
+            .from("opportunities")
+            .select("*")
+            .eq("submitted_by", user?.id as string)
+            .order("created_at", { ascending: false }),
+          supabase
+            .from("bookmarks")
+            .select(
+              `opportunity_id, opportunities (*)`
+            )
+            .eq("user_id", user?.id as string),
+        ]);
 
-      if (submittedRes.error) throw submittedRes.error;
-      if (bookmarksRes.error) throw bookmarksRes.error;
+        if (submittedRes.error) throw submittedRes.error;
+        if (bookmarksRes.error) throw bookmarksRes.error;
 
-      setSubmittedOpportunities(submittedRes.data || []);
-      // cache submitted
-      if (user?.id) setCache(`dash:${user.id}:submitted:v1`, submittedRes.data || [], 120_000);
-      const bookmarkedOppsList =
-        (bookmarksRes.data as BookmarkWithOpportunity[])
-          ?.map((b) => b.opportunities)
-          .filter(Boolean) || [];
-      setBookmarkedOpportunities(bookmarkedOppsList);
-      if (user?.id) setCache(`dash:${user.id}:bookmarks:v1`, bookmarkedOppsList, 120_000);
+        const bookmarkedOppsList =
+          (bookmarksRes.data as BookmarkWithOpportunity[])
+            ?.map((b) => b.opportunities)
+            .filter(Boolean) || [];
+
+        return {
+          submitted: submittedRes.data || [],
+          bookmarked: bookmarkedOppsList,
+        };
+      });
+
+      setSubmittedOpportunities(data.submitted);
+      if (user?.id) setCache(`dash:${user.id}:submitted:v1`, data.submitted, 120_000);
+      setBookmarkedOpportunities(data.bookmarked);
+      if (user?.id) setCache(`dash:${user.id}:bookmarks:v1`, data.bookmarked, 120_000);
     } catch (error) {
       setError(
         "Failed to load dashboard data. Please try refreshing the page."

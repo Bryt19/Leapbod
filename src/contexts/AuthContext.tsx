@@ -34,42 +34,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!mounted) return;
 
       try {
-        console.log("AuthContext: Getting initial session...");
         const {
           data: { session },
           error,
         } = await supabase.auth.getSession();
 
         if (error) {
-          console.error("AuthContext: Error getting session:", error);
           return;
         }
 
-        console.log(
-          "AuthContext: Got session:",
-          session?.user?.id || "No session"
-        );
         setSession(session);
         setUser(session?.user ?? null);
 
         if (session?.user) {
-          console.log(
-            "AuthContext: Fetching profile for user:",
-            session.user.id
-          );
           try {
             await fetchUserProfile(session.user.id);
           } catch (error) {
-            console.error(
-              "AuthContext: Error fetching profile during initial load:",
-              error
-            );
+            // Silently handle profile fetch errors
           }
-        } else {
-          console.log("AuthContext: No user in session");
         }
       } catch (error) {
-        console.error("AuthContext: Error in getInitialSession:", error);
+        // Silently handle session errors
       } finally {
         // no-op
       }
@@ -80,17 +65,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log(
-        "AuthContext: Auth state changed:",
-        event,
-        session?.user?.id || "No user"
-      );
-
+    } =     supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) {
-        console.log(
-          "AuthContext: Component unmounted, skipping auth state change"
-        );
         return;
       }
 
@@ -98,13 +74,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(session?.user ?? null);
 
       if (event === "SIGNED_IN" && session?.user) {
-        console.log(
-          "AuthContext: User signed in, handling sign in for:",
-          session.user.id
-        );
         try {
           await handleUserSignIn(session.user);
-          console.log("AuthContext: Sign in handling complete");
           // Only redirect away from auth pages; otherwise keep current route or restore lastPath
           const isAuthPage = location.pathname === "/auth/login" || location.pathname === "/auth/callback";
           if (isAuthPage) {
@@ -112,12 +83,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             navigate(lastPath || "/dashboard");
           }
         } catch (error) {
-          console.error("AuthContext: Error handling user sign in:", error);
+          // Silently handle sign in errors
         } finally {
           setLoading(false);
         }
       } else if (event === "SIGNED_OUT") {
-        console.log("AuthContext: User signed out");
         setProfile(null);
         setLoading(false);
       } else {
@@ -126,7 +96,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => {
-      console.log("AuthContext: Cleaning up subscription");
       mounted = false;
       subscription.unsubscribe();
     };
@@ -134,8 +103,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchUserProfile = async (userId: string) => {
     try {
-      console.log("AuthContext: Fetching profile for user:", userId);
-
       const { data: profile, error } = await supabase
         .from("profiles")
         .select("*")
@@ -143,23 +110,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .maybeSingle();
 
       if (error) {
-        console.error("AuthContext: Error fetching profile:", error);
         return;
       }
 
-      console.log("AuthContext: Fetched profile:", profile);
       setProfile(profile);
     } catch (error) {
-      console.error("AuthContext: Error fetching profile:", error);
+      // Silently handle profile fetch errors
     }
   };
 
   const handleUserSignIn = async (user: User) => {
     try {
-      console.log("AuthContext: Handling user sign in for:", user.id);
-
       // Check if profile exists
-      console.log("AuthContext: Checking for existing profile...");
       const { data: existingProfile, error: fetchError } = await supabase
         .from("profiles")
         .select("*")
@@ -167,15 +129,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .maybeSingle();
 
       if (fetchError) {
-        console.error(
-          "AuthContext: Error checking existing profile:",
-          fetchError
-        );
         return;
       }
 
       if (existingProfile) {
-        console.log("AuthContext: Found existing profile:", existingProfile);
         // Ensure admin stays in sync with email rule
         const normalizedEmail = (user.email || "").toLowerCase();
         const shouldBeAdmin = normalizedEmail === "leapboard5@gmail.com";
@@ -187,7 +144,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             .select()
             .single();
           if (updateError) {
-            console.error("AuthContext: Error updating profile role:", updateError);
             setProfile(existingProfile);
             return;
           }
@@ -198,20 +154,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      console.log(
-        "AuthContext: No existing profile found, creating new one..."
-      );
-
       // Only leapboard5@gmail.com should be admin (case-insensitive), all others are students
       const normalizedEmail = (user.email || "").toLowerCase();
       const desiredRole = normalizedEmail === "leapboard5@gmail.com" ? "admin" : "student";
-
-      console.log(
-        "AuthContext: Creating new profile with role:",
-        desiredRole,
-        "for email:",
-        user.email
-      );
 
       // Create profile for new user - only using fields that exist in the schema
       const { data: newProfile, error: insertError } = await supabase
@@ -225,14 +170,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single();
 
       if (insertError) {
-        console.error("AuthContext: Error creating profile:", insertError);
         return;
       }
 
-      console.log("AuthContext: Created new profile:", newProfile);
       setProfile(newProfile);
     } catch (error) {
-      console.error("AuthContext: Error handling user sign in:", error);
+      // Silently handle sign in errors
     }
   };
 
@@ -247,11 +190,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (error) {
-        console.error("Error signing in with Google:", error);
         throw error;
       }
     } catch (error) {
-      console.error("Error signing in with Google:", error);
       throw error;
     }
   };
@@ -261,7 +202,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(true);
       const { error } = await supabase.auth.signOut();
       if (error) {
-        console.error("Error signing out:", error);
+        // Silently handle sign out errors
       }
 
       // Clear local state
@@ -283,7 +224,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }, 50);
     } catch (error) {
-      console.error("Error signing out:", error);
       throw error;
     } finally {
       setLoading(false);
@@ -295,15 +235,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     profile?.role === "admin";
 
   // Do not globally block rendering; pages handle their own loading
-
-  console.log(
-    "AuthContext: Rendering app with user:",
-    user?.id,
-    "profile:",
-    profile?.id,
-    "loading:",
-    loading
-  );
 
   const value = {
     user,

@@ -27,3 +27,25 @@ export function setCache<T>(key: string, value: T, ttlMs = 60_000) {
     localStorage.setItem(key, payload)
   } catch {}
 }
+
+// Request deduplication: prevents multiple simultaneous requests for the same resource
+const pendingRequests = new Map<string, Promise<any>>()
+
+export async function dedupeRequest<T>(
+  key: string,
+  fetcher: () => Promise<T>
+): Promise<T> {
+  // If a request is already in progress, return the same promise
+  if (pendingRequests.has(key)) {
+    return pendingRequests.get(key)!
+  }
+
+  // Create new request and store it
+  const promise = fetcher().finally(() => {
+    // Clean up after request completes
+    pendingRequests.delete(key)
+  })
+
+  pendingRequests.set(key, promise)
+  return promise
+}
