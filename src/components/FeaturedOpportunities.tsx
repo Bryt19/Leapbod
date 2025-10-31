@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import type { Opportunity } from '../types/database.types'
 import OpportunityCard from './OpportunityCard'
-import { getCache, setCache } from '../lib/utils'
+import { getCache, setCache, dedupeRequest } from '../lib/utils'
 
 const FeaturedOpportunities = () => {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
@@ -22,21 +22,30 @@ const FeaturedOpportunities = () => {
 
   const fetchFeaturedOpportunities = async () => {
     try {
-      const { data, error } = await supabase
-        .from('opportunities')
-        .select('id,title,category,deadline,location,organization,description,application_url,featured,status,views_count,applications_count,created_at,updated_at,submitted_by,requirements,benefits')
-        .eq('status', 'approved')
-        .eq('featured', true)
-        .order('created_at', { ascending: false })
-        .limit(3)
+      const cached = getCache<Opportunity[]>("featured:v1");
+      if (cached && cached.length) {
+        return; // Already fetched in useEffect
+      }
+      
+      const data = await dedupeRequest("fetch-featured-opps", async () => {
+        const { data, error } = await supabase
+          .from('opportunities')
+          .select('id,title,category,deadline,location,organization,description,application_url,featured,status,views_count,applications_count,created_at,updated_at,submitted_by,requirements,benefits')
+          .eq('status', 'approved')
+          .eq('featured', true)
+          .order('created_at', { ascending: false })
+          .limit(3);
+        
+        if (error) throw error;
+        return data || [];
+      });
 
-      if (error) throw error
-      setOpportunities(data || [])
-      if (data && data.length) setCache("featured:v1", data, 3600_000) // 1 hour cache
+      setOpportunities(data);
+      if (data && data.length) setCache("featured:v1", data, 3600_000); // 1 hour cache
     } catch (error) {
       // Silently fail - fallback data will be shown
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 

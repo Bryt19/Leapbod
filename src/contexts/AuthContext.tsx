@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import type { User, Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import type { Profile } from "../types/database.types";
+import { getCache, setCache, dedupeRequest } from "../lib/utils";
 
 interface AuthContextType {
   user: User | null;
@@ -132,17 +133,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchUserProfile = async (userId: string) => {
     try {
-      const { data: profile, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .maybeSingle();
-
-      if (error) {
-        return;
+      // Check cache first
+      const cacheKey = `profile:${userId}:v1`;
+      const cached = getCache(cacheKey);
+      if (cached) {
+        setProfile(cached);
       }
 
-      setProfile(profile);
+      const data = await dedupeRequest(`fetch-profile-${userId}`, async () => {
+        const { data: profile, error } = await supabase
+          .from("profiles")
+          .select("id,role,email,full_name,created_at")
+          .eq("id", userId)
+          .maybeSingle();
+
+        if (error) {
+          return null;
+        }
+        return profile;
+      });
+
+      if (data) {
+        setProfile(data);
+        setCache(cacheKey, data, 300_000); // 5 minute cache
+      }
     } catch (error) {
       // Silently handle profile fetch errors
     }
@@ -150,18 +164,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const handleUserSignIn = async (user: User) => {
     try {
-      // Check if profile exists
-      const { data: existingProfile, error: fetchError } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (fetchError) {
-        return;
+      // Check cache first
+      const cacheKey = `profile:${user.id}:v1`;
+      const cached = getCache<Profile>(cacheKey);
+      if (cached) {
+        // Ensure admin stays in sync with email rule
+        const normalizedEmail = (user.email || "").toLowerCase();
+        const shouldBeAdmin = normalizedEmail === "leapboard5@gmail.com";
+        if ((shouldBeAdmin && cached.role !== "admin") || (!shouldBeAdmin && cached.role !== "student")) {
+          // Need to update, fall through to fetch and update
+        } else {
+          setProfile(cached);
+          return;
+        }
       }
 
-      if (existingProfile) {
+      // Check if profile exists
+      const data = await dedupeRequest(`fetch-profile-${user.id}`, async () => {
+        const { data: existingProfile, error: fetchError } = await supabase
+          .from("profiles")
+          .select("id,role,email,full_name,created_at")
+          .eq("id", user.id)
+          .maybeSingle();
+        
+        if (fetchError) {
+          return null;
+        }
+        return existingProfile;
+      });
+      
+      const existingProfile = data;
+
+      if (!existingProfile) {
+        // Create new profile below
+      } else {
         // Ensure admin stays in sync with email rule
         const normalizedEmail = (user.email || "").toLowerCase();
         const shouldBeAdmin = normalizedEmail === "leapboard5@gmail.com";
@@ -170,16 +206,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             .from("profiles")
             .update({ role: shouldBeAdmin ? "admin" : "student", email: user.email || existingProfile.email })
             .eq("id", user.id)
-            .select()
+            .select("id,role,email,full_name,created_at")
             .single();
           if (updateError) {
             setProfile(existingProfile);
+            setCache(cacheKey, existingProfile, 300_000);
             return;
           }
           setProfile(updated);
+          setCache(cacheKey, updated, 300_000);
           return;
         }
         setProfile(existingProfile);
+        setCache(cacheKey, existingProfile, 300_000);
         return;
       }
 
@@ -195,7 +234,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           role: desiredRole,
           email: user.email || null,
         })
-        .select()
+        .select("id,role,email,full_name,created_at")
         .single();
 
       if (insertError) {
@@ -203,6 +242,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       setProfile(newProfile);
+      setCache(cacheKey, newProfile, 300_000);
     } catch (error) {
       // Silently handle sign in errors
     }

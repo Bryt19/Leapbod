@@ -42,7 +42,7 @@ import {
   TableRow,
 } from "../components/ui/table";
 import { Textarea } from "../components/ui/textarea";
-import { getCache, setCache } from "../lib/utils";
+import { getCache, setCache, dedupeRequest } from "../lib/utils";
 import {
   HiSearch,
   HiCheck,
@@ -121,31 +121,40 @@ export default function AdminPanel() {
 
   const fetchStats = async () => {
     try {
+      // Check cache first
+      const cached = getCache<DashboardStats>("admin:stats:v1");
+      if (cached) {
+        setStats(cached);
+      }
+
       const [
         { count: totalUsers },
         { count: totalOpportunities },
         { count: pendingOpportunities },
         { count: totalApplications },
       ] = await Promise.all([
-        supabase.from("profiles").select("*", { count: "exact", head: true }),
+        supabase.from("profiles").select("id", { count: "exact", head: true }),
         supabase
           .from("opportunities")
-          .select("*", { count: "exact", head: true }),
+          .select("id", { count: "exact", head: true }),
         supabase
           .from("opportunities")
-          .select("*", { count: "exact", head: true })
+          .select("id", { count: "exact", head: true })
           .eq("status", "pending"),
         supabase
           .from("applications")
-          .select("*", { count: "exact", head: true }),
+          .select("id", { count: "exact", head: true }),
       ]);
 
-      setStats({
+      const newStats = {
         totalUsers: totalUsers || 0,
         totalOpportunities: totalOpportunities || 0,
         pendingOpportunities: pendingOpportunities || 0,
         totalApplications: totalApplications || 0,
-      });
+      };
+      
+      setStats(newStats);
+      setCache("admin:stats:v1", newStats, 60_000); // 1 minute cache for stats
     } catch (error) {
       console.error("Error fetching stats:", error);
     }
@@ -153,14 +162,25 @@ export default function AdminPanel() {
 
   const fetchProfiles = async () => {
     try {
+      // Check cache first
+      const cached = getCache<Profile[]>("admin:profiles:v1");
+      if (cached && cached.length) {
+        setProfiles(cached);
+        setLoading(false);
+      }
+      
       setLoading(true);
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .order("created_at", { ascending: false });
+      const data = await dedupeRequest("fetch-admin-profiles", async () => {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("*")
+          .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      setProfiles(data || []);
+        if (error) throw error;
+        return data || [];
+      });
+
+      setProfiles(data);
       if (data) setCache("admin:profiles:v1", data, 120_000);
     } catch (error) {
       console.error("Error fetching profiles:", error);
@@ -171,15 +191,26 @@ export default function AdminPanel() {
 
   const fetchOpportunities = async () => {
     try {
+      // Check cache first
+      const cached = getCache<Opportunity[]>("admin:opps:v1");
+      if (cached && cached.length) {
+        setOpportunities(cached);
+        setLoading(false);
+      }
+      
       setLoading(true);
-      const { data, error } = await supabase
-        .from("opportunities")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(200);
+      const data = await dedupeRequest("fetch-admin-opps", async () => {
+        const { data, error } = await supabase
+          .from("opportunities")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(200);
 
-      if (error) throw error;
-      setOpportunities(data || []);
+        if (error) throw error;
+        return data || [];
+      });
+
+      setOpportunities(data);
       if (data) setCache("admin:opps:v1", data, 120_000);
     } catch (error) {
       console.error("Error fetching opportunities:", error);

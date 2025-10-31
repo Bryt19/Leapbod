@@ -85,13 +85,13 @@ export default function Dashboard() {
         const [submittedRes, bookmarksRes] = await Promise.all([
           supabase
             .from("opportunities")
-            .select("*")
+            .select("id,title,description,category,organization,status,created_at")
             .eq("submitted_by", user?.id as string)
             .order("created_at", { ascending: false }),
           supabase
             .from("bookmarks")
             .select(
-              `opportunity_id, opportunities (*)`
+              `opportunity_id, opportunities (id,title,description,category,organization,deadline)`
             )
             .eq("user_id", user?.id as string),
         ]);
@@ -110,9 +110,9 @@ export default function Dashboard() {
         };
       });
 
-      setSubmittedOpportunities(data.submitted);
+      setSubmittedOpportunities(data.submitted as Opportunity[]);
       if (user?.id) setCache(`dash:${user.id}:submitted:v1`, data.submitted, 3600_000); // 1 hour cache
-      setBookmarkedOpportunities(data.bookmarked);
+      setBookmarkedOpportunities(data.bookmarked as Opportunity[]);
       if (user?.id) setCache(`dash:${user.id}:bookmarks:v1`, data.bookmarked, 3600_000); // 1 hour cache
     } catch (error) {
       setError(
