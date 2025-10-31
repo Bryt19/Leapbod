@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { Dialog, DialogContent } from './ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog'
 import { FcGoogle } from 'react-icons/fc'
 
 interface ProtectedRouteProps {
@@ -31,6 +31,10 @@ export default function ProtectedRoute({ children, requireAdmin = false }: Prote
         <div className="min-h-screen bg-background/80" />
         <Dialog open onOpenChange={(open) => { if (!open) navigate('/') }}>
           <DialogContent className="sm:max-w-md p-0 overflow-hidden">
+            <DialogHeader className="sr-only">
+              <DialogTitle>Sign in required</DialogTitle>
+              <DialogDescription>Please sign in to access this page</DialogDescription>
+            </DialogHeader>
             <div className="p-6 bg-card">
               {/* Brand */}
               <div className="text-center">
