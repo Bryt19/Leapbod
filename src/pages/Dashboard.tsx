@@ -43,22 +43,13 @@ export default function Dashboard() {
   const showSuccess = searchParams.get("submitted") === "true";
 
   useEffect(() => {
-    console.log(
-      "Dashboard useEffect triggered. Auth loading:",
-      authLoading,
-      "User:",
-      user?.id
-    );
-
     // Wait for auth to finish loading before making decisions
     if (authLoading) {
-      console.log("Still loading auth...");
       return;
     }
 
     if (user) {
-      console.log("User found, hydrating from cache and fetching data...");
-      // Fast hydration from cache
+      // Instant hydration from cache
       const subKey = `dash:${user.id}:submitted:v1`;
       const bmKey = `dash:${user.id}:bookmarks:v1`;
       const cachedSubmitted = getCache<Opportunity[]>(subKey);
@@ -68,9 +59,9 @@ export default function Dashboard() {
         if (cachedBookmarks) setBookmarkedOpportunities(cachedBookmarks);
         setLoading(false);
       }
+      // Fetch fresh data in background
       fetchUserData();
     } else {
-      console.log("No user found, stopping loading");
       setLoading(false);
     }
 
@@ -83,12 +74,16 @@ export default function Dashboard() {
   }, [user, authLoading, showSuccess, setSearchParams]);
 
   const fetchUserData = async () => {
-    console.log("Fetching user data for:", user?.id);
-    setLoading(true);
+    // Only show loading if we don't have cached data
+    const subKey = `dash:${user?.id}:submitted:v1`;
+    const bmKey = `dash:${user?.id}:bookmarks:v1`;
+    const hasCache = getCache<Opportunity[]>(subKey) || getCache<Opportunity[]>(bmKey);
+    if (!hasCache || (!getCache<Opportunity[]>(subKey)?.length && !getCache<Opportunity[]>(bmKey)?.length)) {
+      setLoading(true);
+    }
     setError(null);
 
     try {
-      console.log("Fetching submitted + bookmarks in parallel...");
       const [submittedRes, bookmarksRes] = await Promise.all([
         supabase
           .from("opportunities")
@@ -115,15 +110,11 @@ export default function Dashboard() {
           .filter(Boolean) || [];
       setBookmarkedOpportunities(bookmarkedOppsList);
       if (user?.id) setCache(`dash:${user.id}:bookmarks:v1`, bookmarkedOppsList, 120_000);
-
-      console.log("Data fetching completed successfully");
     } catch (error) {
-      console.error("Error fetching user data:", error);
       setError(
         "Failed to load dashboard data. Please try refreshing the page."
       );
     } finally {
-      console.log("Setting loading to false");
       setLoading(false);
     }
   };

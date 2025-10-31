@@ -51,34 +51,30 @@ export default function OpportunitiesPage() {
   ];
 
   useEffect(() => {
-    console.log(
-      "OpportunitiesPage useEffect triggered. Auth loading:",
-      authLoading,
-      "User:",
-      user?.id
-    );
-
-    // Hydrate fast from cache then refresh
+    // Hydrate instantly from cache
     const cached = getCache<Opportunity[]>("opportunities:v1");
     if (cached && cached.length) {
       setOpportunities(cached);
       setLoading(false);
     }
+
+    // Fetch fresh data in background (don't block UI if cache exists)
     fetchOpportunities();
 
     // Only fetch bookmarks if user is authenticated and auth is not loading
     if (!authLoading && user) {
-      console.log("User authenticated, fetching bookmarks...");
       fetchBookmarks();
     } else if (!authLoading) {
-      console.log("No user, skipping bookmarks fetch");
       setBookmarkedOpportunities([]);
     }
   }, [user, authLoading]);
 
   const fetchOpportunities = async () => {
-    console.log("Fetching opportunities...");
-    setLoading(true);
+    // Only show loading if we don't have cached data
+    const hasCache = getCache<Opportunity[]>("opportunities:v1");
+    if (!hasCache || !hasCache.length) {
+      setLoading(true);
+    }
     setError(null);
 
     try {
@@ -92,53 +88,39 @@ export default function OpportunitiesPage() {
         .limit(24);
 
       if (error) {
-        console.error("Error fetching opportunities:", error);
         throw error;
       }
 
-      console.log("Fetched opportunities:", data?.length, "items");
       setOpportunities(data || []);
       if (data && data.length) setCache("opportunities:v1", data, 120_000);
     } catch (error) {
-      console.error("Error fetching opportunities:", error);
       setError("Failed to load opportunities. Please try refreshing the page.");
     } finally {
-      console.log("Opportunities fetch completed, setting loading to false");
       setLoading(false);
     }
   };
 
   const fetchBookmarks = async () => {
-    if (!user) {
-      console.log("No user for bookmarks fetch");
-      return;
-    }
+    if (!user) return;
 
     try {
-      console.log("Fetching bookmarks for user:", user.id);
       const { data, error } = await supabase
         .from("bookmarks")
         .select("opportunity_id")
         .eq("user_id", user.id);
 
-      if (error) {
-        console.error("Error fetching bookmarks:", error);
-        throw error;
-      }
+      if (error) throw error;
 
-      console.log("Fetched bookmarks:", data?.length, "items");
       setBookmarkedOpportunities(
         data?.map((bookmark) => bookmark.opportunity_id) || []
       );
     } catch (error) {
-      console.error("Error fetching bookmarks:", error);
       // Don't set error state for bookmarks - it's not critical
     }
   };
 
   const handleBookmarkToggle = () => {
     if (user) {
-      console.log("Bookmark toggled, refetching bookmarks...");
       fetchBookmarks();
     }
   };

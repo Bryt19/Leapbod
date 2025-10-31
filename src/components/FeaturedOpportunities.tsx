@@ -34,7 +34,7 @@ const FeaturedOpportunities = () => {
       setOpportunities(data || [])
       if (data && data.length) setCache("featured:v1", data, 120_000)
     } catch (error) {
-      console.error('Error fetching featured opportunities:', error)
+      // Silently fail - fallback data will be shown
     } finally {
       setLoading(false)
     }
