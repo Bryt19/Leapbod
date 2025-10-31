@@ -135,9 +135,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       // Check cache first
       const cacheKey = `profile:${userId}:v1`;
-      const cached = getCache(cacheKey);
+      const cached = getCache<Profile>(cacheKey);
       if (cached) {
-        setProfile(cached);
+        setProfile(cached as Profile);
       }
 
       const data = await dedupeRequest(`fetch-profile-${userId}`, async () => {
@@ -150,11 +150,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (error) {
           return null;
         }
-        return profile;
+        return profile as Profile | null;
       });
 
       if (data) {
-        setProfile(data);
+        setProfile(data as Profile);
         setCache(cacheKey, data, 300_000); // 5 minute cache
       }
     } catch (error) {
@@ -190,7 +190,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (fetchError) {
           return null;
         }
-        return existingProfile;
+        return existingProfile as Profile | null;
       });
       
       const existingProfile = data;
@@ -209,15 +209,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             .select("id,role,email,full_name,created_at")
             .single();
           if (updateError) {
-            setProfile(existingProfile);
+            setProfile(existingProfile as Profile);
             setCache(cacheKey, existingProfile, 300_000);
             return;
           }
-          setProfile(updated);
+          setProfile(updated as Profile);
           setCache(cacheKey, updated, 300_000);
           return;
         }
-        setProfile(existingProfile);
+        setProfile(existingProfile as Profile);
         setCache(cacheKey, existingProfile, 300_000);
         return;
       }
@@ -241,7 +241,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      setProfile(newProfile);
+      setProfile(newProfile as Profile);
       setCache(cacheKey, newProfile, 300_000);
     } catch (error) {
       // Silently handle sign in errors
