@@ -111,9 +111,9 @@ export default function Dashboard() {
       });
 
       setSubmittedOpportunities(data.submitted);
-      if (user?.id) setCache(`dash:${user.id}:submitted:v1`, data.submitted, 120_000);
+      if (user?.id) setCache(`dash:${user.id}:submitted:v1`, data.submitted, 3600_000); // 1 hour cache
       setBookmarkedOpportunities(data.bookmarked);
-      if (user?.id) setCache(`dash:${user.id}:bookmarks:v1`, data.bookmarked, 120_000);
+      if (user?.id) setCache(`dash:${user.id}:bookmarks:v1`, data.bookmarked, 3600_000); // 1 hour cache
     } catch (error) {
       setError(
         "Failed to load dashboard data. Please try refreshing the page."

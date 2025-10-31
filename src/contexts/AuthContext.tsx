@@ -97,11 +97,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setLoading(false);
         }
       } else if (event === "SIGNED_OUT") {
-        setProfile(null);
+        // Only clear if we're actually signed out (session is null)
+        if (!session) {
+          setProfile(null);
+        }
         setLoading(false);
       } else if (event === "TOKEN_REFRESHED") {
-        // Token refreshed - just update session, don't block UI
+        // Token refreshed - just update session, don't block UI or clear data
         // Profile fetch happens in background if needed
+        if (session?.user && mounted) {
+          fetchUserProfile(session.user.id).catch(() => {
+            // Silently handle profile fetch errors
+          });
+        }
+        setLoading(false);
+      } else if (event === "USER_UPDATED") {
+        // User updated - refresh profile but keep data
         if (session?.user && mounted) {
           fetchUserProfile(session.user.id).catch(() => {
             // Silently handle profile fetch errors

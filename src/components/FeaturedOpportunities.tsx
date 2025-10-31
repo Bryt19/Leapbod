@@ -32,7 +32,7 @@ const FeaturedOpportunities = () => {
 
       if (error) throw error
       setOpportunities(data || [])
-      if (data && data.length) setCache("featured:v1", data, 120_000)
+      if (data && data.length) setCache("featured:v1", data, 3600_000) // 1 hour cache
     } catch (error) {
       // Silently fail - fallback data will be shown
     } finally {

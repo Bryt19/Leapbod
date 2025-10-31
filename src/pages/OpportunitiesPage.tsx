@@ -95,7 +95,7 @@ export default function OpportunitiesPage() {
       });
 
       setOpportunities(data);
-      if (data && data.length) setCache("opportunities:v1", data, 120_000);
+      if (data && data.length) setCache("opportunities:v1", data, 3600_000); // 1 hour cache
     } catch (error) {
       setError("Failed to load opportunities. Please try refreshing the page.");
     } finally {
