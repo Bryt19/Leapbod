@@ -34,10 +34,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!mounted) return;
 
       try {
+        // Add timeout to prevent hanging on slow network (3 second timeout)
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise<null>((resolve) => {
+          setTimeout(() => resolve(null), 3000);
+        });
+
+        const result = await Promise.race([sessionPromise, timeoutPromise]);
+        if (!mounted || !result) return;
+
         const {
           data: { session },
           error,
-        } = await supabase.auth.getSession();
+        } = result as Awaited<typeof sessionPromise>;
 
         if (error) {
           return;
@@ -46,12 +55,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
 
-        if (session?.user) {
-          try {
-            await fetchUserProfile(session.user.id);
-          } catch (error) {
+        if (session?.user && mounted) {
+          // Fetch profile in background, don't wait for it
+          fetchUserProfile(session.user.id).catch(() => {
             // Silently handle profile fetch errors
-          }
+          });
         }
       } catch (error) {
         // Silently handle session errors
@@ -73,6 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
 
+      // Handle different auth events
       if (event === "SIGNED_IN" && session?.user) {
         try {
           await handleUserSignIn(session.user);
@@ -89,6 +98,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } else if (event === "SIGNED_OUT") {
         setProfile(null);
+        setLoading(false);
+      } else if (event === "TOKEN_REFRESHED") {
+        // Token refreshed - just update session, don't block UI
+        // Profile fetch happens in background if needed
+        if (session?.user && mounted) {
+          fetchUserProfile(session.user.id).catch(() => {
+            // Silently handle profile fetch errors
+          });
+        }
         setLoading(false);
       } else {
         setLoading(false);

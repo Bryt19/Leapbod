@@ -51,7 +51,7 @@ export default function OpportunitiesPage() {
   ];
 
   useEffect(() => {
-    // Hydrate instantly from cache
+    // Hydrate instantly from cache - don't wait for auth
     const cached = getCache<Opportunity[]>("opportunities:v1");
     if (cached && cached.length) {
       setOpportunities(cached);
@@ -61,13 +61,13 @@ export default function OpportunitiesPage() {
     // Fetch fresh data in background (don't block UI if cache exists)
     fetchOpportunities();
 
-    // Only fetch bookmarks if user is authenticated and auth is not loading
-    if (!authLoading && user) {
+    // Fetch bookmarks only if user is available (don't wait for authLoading)
+    if (user) {
       fetchBookmarks();
-    } else if (!authLoading) {
+    } else {
       setBookmarkedOpportunities([]);
     }
-  }, [user, authLoading]);
+  }, [user]);
 
   const fetchOpportunities = async () => {
     // Only show loading if we don't have cached data

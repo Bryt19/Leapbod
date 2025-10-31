@@ -43,11 +43,7 @@ export default function Dashboard() {
   const showSuccess = searchParams.get("submitted") === "true";
 
   useEffect(() => {
-    // Wait for auth to finish loading before making decisions
-    if (authLoading) {
-      return;
-    }
-
+    // Show cached data immediately if available, don't wait for auth
     if (user) {
       // Instant hydration from cache
       const subKey = `dash:${user.id}:submitted:v1`;
@@ -59,9 +55,10 @@ export default function Dashboard() {
         if (cachedBookmarks) setBookmarkedOpportunities(cachedBookmarks);
         setLoading(false);
       }
-      // Fetch fresh data in background
+      // Fetch fresh data in background (with deduplication)
       fetchUserData();
-    } else {
+    } else if (!authLoading) {
+      // Only clear loading if auth has finished and there's no user
       setLoading(false);
     }
 
