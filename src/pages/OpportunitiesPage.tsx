@@ -26,7 +26,7 @@ import { Separator } from "../components/ui/separator";
 import { getCache, setCache, dedupeRequest } from "../lib/utils";
 
 export default function OpportunitiesPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [bookmarkedOpportunities, setBookmarkedOpportunities] = useState<
     string[]
