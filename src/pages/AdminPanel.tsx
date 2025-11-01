@@ -68,7 +68,6 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  LineChart,
   Line,
   Area,
   AreaChart,
@@ -1219,19 +1218,20 @@ export default function AdminPanel() {
                                 label={(entry: any) => {
                                   const RADIAN = Math.PI / 180;
                                   const radius = 120;
-                                  const x = entry.cx + radius * Math.cos(-entry.midAngle * RADIAN);
-                                  const y = entry.cy + radius * Math.sin(-entry.midAngle * RADIAN);
+                                  const { cx, cy, midAngle, name, percent } = entry;
+                                  const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                                  const y = cy + radius * Math.sin(-midAngle * RADIAN);
                                   return (
                                     <text
                                       x={x}
                                       y={y}
                                       fill={isDarkMode ? "#ffffff" : "hsl(var(--foreground))"}
-                                      textAnchor={x > entry.cx ? "start" : "end"}
+                                      textAnchor={x > cx ? "start" : "end"}
                                       dominantBaseline="central"
                                       fontSize={12}
                                       fontWeight={500}
                                     >
-                                      {`${entry.name}: ${(entry.percent * 100).toFixed(0)}%`}
+                                      {`${name}: ${(percent * 100).toFixed(0)}%`}
                                     </text>
                                   );
                                 }}
