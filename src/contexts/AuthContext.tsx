@@ -202,9 +202,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const normalizedEmail = (user.email || "").toLowerCase();
         const shouldBeAdmin = normalizedEmail === "leapboard5@gmail.com";
         if ((shouldBeAdmin && existingProfile.role !== "admin") || (!shouldBeAdmin && existingProfile.role !== "student")) {
+          // Extract full_name from user metadata if not already set in profile
+          const fullName = 
+            existingProfile.full_name ||
+            user.user_metadata?.full_name ||
+            user.user_metadata?.name ||
+            (user.user_metadata?.given_name && user.user_metadata?.family_name
+              ? `${user.user_metadata.given_name} ${user.user_metadata.family_name}`
+              : null) ||
+            null;
+
           const { data: updated, error: updateError } = await supabase
             .from("profiles")
-            .update({ role: shouldBeAdmin ? "admin" : "student", email: user.email || existingProfile.email })
+            .update({ 
+              role: shouldBeAdmin ? "admin" : "student", 
+              email: user.email || existingProfile.email,
+              full_name: fullName,
+            })
             .eq("id", user.id)
             .select("id,role,email,full_name,created_at")
             .single();
@@ -226,6 +240,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const normalizedEmail = (user.email || "").toLowerCase();
       const desiredRole = normalizedEmail === "leapboard5@gmail.com" ? "admin" : "student";
 
+      // Extract full_name from user metadata (Google OAuth provides full_name or name)
+      const fullName = 
+        user.user_metadata?.full_name ||
+        user.user_metadata?.name ||
+        (user.user_metadata?.given_name && user.user_metadata?.family_name
+          ? `${user.user_metadata.given_name} ${user.user_metadata.family_name}`
+          : null) ||
+        null;
+
       // Create profile for new user - only using fields that exist in the schema
       const { data: newProfile, error: insertError } = await supabase
         .from("profiles")
@@ -233,6 +256,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           id: user.id,
           role: desiredRole,
           email: user.email || null,
+          full_name: fullName,
         })
         .select("id,role,email,full_name,created_at")
         .single();
