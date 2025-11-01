@@ -15,6 +15,14 @@ import { useAuth } from "../contexts/AuthContext";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -29,6 +37,7 @@ export default function Navigation() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isNavbarVisible, setIsNavbarVisible] = useState(true);
+  const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const stored = localStorage.getItem('theme');
     if (stored === 'dark' || stored === 'light') return stored;
@@ -49,8 +58,13 @@ export default function Navigation() {
     return location.pathname.startsWith(href);
   };
 
-  const handleSignOut = async () => {
+  const handleSignOutClick = () => {
+    setShowSignOutModal(true);
+  };
+
+  const handleConfirmSignOut = async () => {
     try {
+      setShowSignOutModal(false);
       await signOut();
     } catch (error) {
       console.error("Error signing out:", error);
@@ -201,7 +215,7 @@ export default function Navigation() {
                   )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
-                    onClick={handleSignOut}
+                    onClick={handleSignOutClick}
                     className="cursor-pointer"
                   >
                     <HiLogout className="mr-2 h-4 w-4" />
@@ -310,7 +324,7 @@ export default function Navigation() {
                     variant="ghost"
                     className="w-full justify-start"
                     onClick={() => {
-                      handleSignOut();
+                      handleSignOutClick();
                       setIsMobileMenuOpen(false);
                     }}
                   >
@@ -341,6 +355,33 @@ export default function Navigation() {
           </div>
         )}
       </div>
+
+      {/* Sign Out Confirmation Modal */}
+      <Dialog open={showSignOutModal} onOpenChange={setShowSignOutModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Sign Out</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to sign out? You'll need to sign in again to access your account.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setShowSignOutModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="default"
+              onClick={handleConfirmSignOut}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Sign Out
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </nav>
   );
 }
