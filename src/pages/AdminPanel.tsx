@@ -54,8 +54,26 @@ import {
   HiEye,
   HiPencil,
 } from "react-icons/hi";
-import { format } from "date-fns";
+import { format, subDays, startOfDay, endOfDay } from "date-fns";
 import type { Database } from "../types/database.types";
+import {
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  Area,
+  AreaChart,
+  ComposedChart,
+} from "recharts";
 
 type Opportunity = Database["public"]["Tables"]["opportunities"]["Row"];
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
@@ -99,10 +117,46 @@ export default function AdminPanel() {
   const [searchTerm, setSearchTerm] = useState("");
   const [userFilter, setUserFilter] = useState("all");
   const [opportunityFilter, setOpportunityFilter] = useState("all");
+  const [selectedStat, setSelectedStat] = useState<string | null>(null);
+  const [statDetails, setStatDetails] = useState<{
+    users?: Profile[];
+    opportunities?: Opportunity[];
+    pending?: Opportunity[];
+    applications?: any[];
+  }>({});
+  const [loadingStatDetails, setLoadingStatDetails] = useState(false);
+  const [statSearchTerm, setStatSearchTerm] = useState("");
+  const [chartData, setChartData] = useState<{
+    timeSeries?: any[];
+    categoryBreakdown?: any[];
+    statusDistribution?: any[];
+    userGrowth?: any[];
+    applicationTrends?: any[];
+  }>({});
+  const [loadingCharts, setLoadingCharts] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  useEffect(() => {
+    // Check for dark mode
+    const checkDarkMode = () => {
+      setIsDarkMode(document.documentElement.classList.contains("dark"));
+    };
+    checkDarkMode();
+    
+    // Watch for theme changes
+    const observer = new MutationObserver(checkDarkMode);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     // Only fetch what's needed for the initial tab (overview stats)
     fetchStats();
+    fetchChartData();
     // Hydrate caches for other tabs to speed up first render
     const profCache = getCache<Profile[]>("admin:profiles:v1");
     if (profCache) setProfiles(profCache);
@@ -157,6 +211,165 @@ export default function AdminPanel() {
       setCache("admin:stats:v1", newStats, 60_000); // 1 minute cache for stats
     } catch (error) {
       console.error("Error fetching stats:", error);
+    }
+  };
+
+  const fetchChartData = async () => {
+    setLoadingCharts(true);
+    try {
+      // Fetch all data in parallel
+      const [
+      { data: allOpportunities },
+      { data: allUsers },
+      { data: allApplications },
+    ] = await Promise.all([
+      supabase
+        .from("opportunities")
+        .select("created_at, category, status, views_count, applications_count")
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("profiles")
+        .select("created_at, role")
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("applications")
+        .select("applied_at, status")
+        .order("applied_at", { ascending: false }),
+    ]);
+
+      const now = new Date();
+
+      // Generate time series data (last 30 days)
+      const timeSeriesData: any[] = [];
+      for (let i = 29; i >= 0; i--) {
+        const date = subDays(now, i);
+        const dateStr = format(date, "MMM dd");
+        const dateStart = startOfDay(date);
+        const dateEnd = endOfDay(date);
+
+        const oppsCount =
+          allOpportunities?.filter(
+            (opp) =>
+              opp.created_at &&
+              new Date(opp.created_at) >= dateStart &&
+              new Date(opp.created_at) <= dateEnd
+          ).length || 0;
+
+        const usersCount =
+          allUsers?.filter(
+            (user) =>
+              user.created_at &&
+              new Date(user.created_at) >= dateStart &&
+              new Date(user.created_at) <= dateEnd
+          ).length || 0;
+
+        const appsCount =
+          allApplications?.filter(
+            (app) =>
+              app.applied_at &&
+              new Date(app.applied_at) >= dateStart &&
+              new Date(app.applied_at) <= dateEnd
+          ).length || 0;
+
+        timeSeriesData.push({
+          date: dateStr,
+          opportunities: oppsCount,
+          users: usersCount,
+          applications: appsCount,
+        });
+      }
+
+      // Category breakdown (approved opportunities only)
+      const categoryCounts: Record<string, number> = {};
+      allOpportunities?.forEach((opp) => {
+        if (opp.status === "approved") {
+          const category = opp.category || "other";
+          categoryCounts[category] = (categoryCounts[category] || 0) + 1;
+        }
+      });
+
+      const categoryBreakdown = Object.entries(categoryCounts)
+        .map(([name, value]) => ({
+          name: name.charAt(0).toUpperCase() + name.slice(1),
+          value,
+        }))
+        .sort((a, b) => b.value - a.value);
+
+      // Status distribution
+      const statusCounts: Record<string, number> = {};
+      allOpportunities?.forEach((opp) => {
+        const status = opp.status || "pending";
+        statusCounts[status] = (statusCounts[status] || 0) + 1;
+      });
+
+      const statusDistribution = Object.entries(statusCounts).map(
+        ([name, value]) => ({
+          name: name.charAt(0).toUpperCase() + name.slice(1),
+          value,
+        })
+      );
+
+      // User growth (weekly)
+      const userGrowth: any[] = [];
+      for (let i = 7; i >= 0; i--) {
+        const weekEnd = subDays(now, i * 7);
+        const weekStart = subDays(weekEnd, 6);
+        const weekLabel = i === 7 ? "This Week" : `Week ${8 - i}`;
+
+        const totalUsers =
+          allUsers?.filter(
+            (user) =>
+              user.created_at &&
+              new Date(user.created_at) <= weekEnd
+          ).length || 0;
+
+        const newUsers =
+          allUsers?.filter(
+            (user) =>
+              user.created_at &&
+              new Date(user.created_at) >= weekStart &&
+              new Date(user.created_at) <= weekEnd
+          ).length || 0;
+
+        userGrowth.push({
+          period: weekLabel,
+          total: totalUsers,
+          new: newUsers,
+        });
+      }
+
+      // Application trends (weekly)
+      const applicationTrends: any[] = [];
+      for (let i = 7; i >= 0; i--) {
+        const weekEnd = subDays(now, i * 7);
+        const weekStart = subDays(weekEnd, 6);
+        const weekLabel = i === 7 ? "This Week" : `Week ${8 - i}`;
+
+        const total =
+          allApplications?.filter(
+            (app) =>
+              app.applied_at &&
+              new Date(app.applied_at) >= weekStart &&
+              new Date(app.applied_at) <= weekEnd
+          ).length || 0;
+
+        applicationTrends.push({
+          period: weekLabel,
+          applications: total,
+        });
+      }
+
+      setChartData({
+        timeSeries: timeSeriesData,
+        categoryBreakdown,
+        statusDistribution,
+        userGrowth,
+        applicationTrends,
+      });
+    } catch (error) {
+      console.error("Error fetching chart data:", error);
+    } finally {
+      setLoadingCharts(false);
     }
   };
 
@@ -216,6 +429,68 @@ export default function AdminPanel() {
       console.error("Error fetching opportunities:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchStatDetails = async (statType: string) => {
+    if (selectedStat === statType) {
+      // If clicking the same stat, close it
+      setSelectedStat(null);
+      setStatDetails({});
+      setStatSearchTerm("");
+      return;
+    }
+
+    setLoadingStatDetails(true);
+    setSelectedStat(statType);
+    setStatSearchTerm(""); // Reset search when switching stats
+
+    try {
+      switch (statType) {
+        case "users":
+          const { data: usersData } = await supabase
+            .from("profiles")
+            .select("*")
+            .order("created_at", { ascending: false });
+          setStatDetails({ users: usersData || [] });
+          break;
+
+        case "opportunities":
+          const { data: oppsData } = await supabase
+            .from("opportunities")
+            .select("*")
+            .order("created_at", { ascending: false })
+            .limit(50);
+          setStatDetails({ opportunities: oppsData || [] });
+          break;
+
+        case "pending":
+          const { data: pendingData } = await supabase
+            .from("opportunities")
+            .select("*")
+            .eq("status", "pending")
+            .order("created_at", { ascending: false })
+            .limit(50);
+          setStatDetails({ pending: pendingData || [] });
+          break;
+
+        case "applications":
+          const { data: appsData } = await supabase
+            .from("applications")
+            .select("*, opportunities(title), profiles(full_name, email)")
+            .order("applied_at", { ascending: false })
+            .limit(50);
+          setStatDetails({ applications: appsData || [] });
+          break;
+
+        default:
+          setStatDetails({});
+      }
+    } catch (error) {
+      console.error("Error fetching stat details:", error);
+      setStatDetails({});
+    } finally {
+      setLoadingStatDetails(false);
     }
   };
 
@@ -461,7 +736,12 @@ export default function AdminPanel() {
 
             <TabsContent value="overview" className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <Card>
+                <Card
+                  className={`cursor-pointer transition-all hover:shadow-lg hover:scale-105 ${
+                    selectedStat === "users" ? "ring-2 ring-primary" : ""
+                  }`}
+                  onClick={() => fetchStatDetails("users")}
+                >
                   <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                     <CardTitle className="text-sm font-medium">
                       Total Users
@@ -475,7 +755,12 @@ export default function AdminPanel() {
                     </p>
                   </CardContent>
                 </Card>
-                <Card>
+                <Card
+                  className={`cursor-pointer transition-all hover:shadow-lg hover:scale-105 ${
+                    selectedStat === "opportunities" ? "ring-2 ring-primary" : ""
+                  }`}
+                  onClick={() => fetchStatDetails("opportunities")}
+                >
                   <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                     <CardTitle className="text-sm font-medium">
                       Total Opportunities
@@ -491,7 +776,12 @@ export default function AdminPanel() {
                     </p>
                   </CardContent>
                 </Card>
-                <Card>
+                <Card
+                  className={`cursor-pointer transition-all hover:shadow-lg hover:scale-105 ${
+                    selectedStat === "pending" ? "ring-2 ring-primary" : ""
+                  }`}
+                  onClick={() => fetchStatDetails("pending")}
+                >
                   <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                     <CardTitle className="text-sm font-medium">
                       Pending Review
@@ -507,7 +797,12 @@ export default function AdminPanel() {
                     </p>
                   </CardContent>
                 </Card>
-                <Card>
+                <Card
+                  className={`cursor-pointer transition-all hover:shadow-lg hover:scale-105 ${
+                    selectedStat === "applications" ? "ring-2 ring-primary" : ""
+                  }`}
+                  onClick={() => fetchStatDetails("applications")}
+                >
                   <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                     <CardTitle className="text-sm font-medium">
                       Total Applications
@@ -523,6 +818,686 @@ export default function AdminPanel() {
                     </p>
                   </CardContent>
                 </Card>
+              </div>
+
+              {/* Stat Details Section */}
+              {selectedStat && (
+                <Card className="mt-6">
+                  <CardHeader>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                      <div>
+                        <CardTitle>
+                          {selectedStat === "users" && "All Users"}
+                          {selectedStat === "opportunities" && "All Opportunities"}
+                          {selectedStat === "pending" && "Pending Opportunities"}
+                          {selectedStat === "applications" && "All Applications"}
+                        </CardTitle>
+                        <CardDescription>
+                          {selectedStat === "users" &&
+                            `Showing ${
+                              statDetails.users?.filter((user) =>
+                                `${user.full_name || ""} ${user.email || ""} ${user.university || ""} ${user.role || ""}`
+                                  .toLowerCase()
+                                  .includes(statSearchTerm.toLowerCase())
+                              ).length || 0
+                            } of ${statDetails.users?.length || 0} users`}
+                          {selectedStat === "opportunities" &&
+                            `Showing ${
+                              statDetails.opportunities?.filter((opp) =>
+                                `${opp.title || ""} ${opp.organization || ""} ${opp.category || ""} ${opp.status || ""}`
+                                  .toLowerCase()
+                                  .includes(statSearchTerm.toLowerCase())
+                              ).length || 0
+                            } of ${statDetails.opportunities?.length || 0} opportunities`}
+                          {selectedStat === "pending" &&
+                            `Showing ${
+                              statDetails.pending?.filter((opp) =>
+                                `${opp.title || ""} ${opp.organization || ""} ${opp.category || ""}`
+                                  .toLowerCase()
+                                  .includes(statSearchTerm.toLowerCase())
+                              ).length || 0
+                            } of ${statDetails.pending?.length || 0} pending opportunities`}
+                          {selectedStat === "applications" &&
+                            `Showing ${
+                              statDetails.applications?.filter((app: any) =>
+                                `${app.profiles?.full_name || ""} ${app.profiles?.email || ""} ${app.opportunities?.title || ""} ${app.status || ""}`
+                                  .toLowerCase()
+                                  .includes(statSearchTerm.toLowerCase())
+                              ).length || 0
+                            } of ${statDetails.applications?.length || 0} applications`}
+                        </CardDescription>
+                      </div>
+                      <div className="flex-1 sm:max-w-md">
+                        <div className="relative">
+                          <HiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                          <Input
+                            placeholder={
+                              selectedStat === "users"
+                                ? "Search users by name, email, university..."
+                                : selectedStat === "applications"
+                                ? "Search by user, opportunity, status..."
+                                : "Search by title, organization, category..."
+                            }
+                            value={statSearchTerm}
+                            onChange={(e) => setStatSearchTerm(e.target.value)}
+                            className="pl-9"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {loadingStatDetails ? (
+                      <div className="flex justify-center items-center py-12">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {/* Users Table */}
+                        {selectedStat === "users" && statDetails.users && (
+                          <div className="overflow-x-auto">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Name</TableHead>
+                                  <TableHead>Email</TableHead>
+                                  <TableHead>Role</TableHead>
+                                  <TableHead>University</TableHead>
+                                  <TableHead>Joined</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {statDetails.users
+                                  .filter((user) =>
+                                    `${user.full_name || ""} ${user.email || ""} ${user.university || ""} ${user.role || ""}`
+                                      .toLowerCase()
+                                      .includes(statSearchTerm.toLowerCase())
+                                  )
+                                  .map((user) => (
+                                  <TableRow key={user.id}>
+                                    <TableCell>
+                                      {user.full_name || "Unknown User"}
+                                    </TableCell>
+                                    <TableCell>{user.email || "No email"}</TableCell>
+                                    <TableCell>
+                                      <Badge
+                                        variant={
+                                          user.role === "admin"
+                                            ? "default"
+                                            : "secondary"
+                                        }
+                                      >
+                                        {user.role || "student"}
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                      {user.university || "-"}
+                                    </TableCell>
+                                    <TableCell>
+                                      {user.created_at
+                                        ? format(
+                                            new Date(user.created_at),
+                                            "MMM dd, yyyy"
+                                          )
+                                        : "-"}
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        )}
+
+                        {/* Opportunities Table */}
+                        {(selectedStat === "opportunities" ||
+                          selectedStat === "pending") &&
+                          (statDetails.opportunities ||
+                            statDetails.pending) && (
+                            <div className="overflow-x-auto">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>Title</TableHead>
+                                    <TableHead>Category</TableHead>
+                                    <TableHead>Organization</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead>Created</TableHead>
+                                    <TableHead className="text-right">
+                                      Actions
+                                    </TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {(selectedStat === "opportunities"
+                                    ? statDetails.opportunities
+                                    : statDetails.pending
+                                  )
+                                    ?.filter((opp) =>
+                                      `${opp.title || ""} ${opp.organization || ""} ${opp.category || ""} ${selectedStat === "opportunities" ? opp.status || "" : ""}`
+                                        .toLowerCase()
+                                        .includes(statSearchTerm.toLowerCase())
+                                    )
+                                    .map((opp) => (
+                                    <TableRow key={opp.id}>
+                                      <TableCell className="font-medium">
+                                        {opp.title}
+                                      </TableCell>
+                                      <TableCell>
+                                        <Badge variant="outline" className="capitalize">
+                                          {opp.category}
+                                        </Badge>
+                                      </TableCell>
+                                      <TableCell>{opp.organization || "-"}</TableCell>
+                                      <TableCell>
+                                        <Badge
+                                          variant={
+                                            opp.status === "approved"
+                                              ? "default"
+                                              : opp.status === "rejected"
+                                              ? "destructive"
+                                              : "secondary"
+                                          }
+                                        >
+                                          {opp.status || "pending"}
+                                        </Badge>
+                                      </TableCell>
+                                      <TableCell>
+                                        {opp.created_at
+                                          ? format(
+                                              new Date(opp.created_at),
+                                              "MMM dd, yyyy"
+                                            )
+                                          : "-"}
+                                      </TableCell>
+                                      <TableCell className="text-right">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => {
+                                            setSelectedItem(opp);
+                                            setDialogMode("view");
+                                            setShowDetailsDialog(true);
+                                          }}
+                                        >
+                                          <HiEye className="w-4 h-4" />
+                                        </Button>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          )}
+
+                        {/* Applications Table */}
+                        {selectedStat === "applications" &&
+                          statDetails.applications && (
+                            <div className="overflow-x-auto">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>User</TableHead>
+                                    <TableHead>Opportunity</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead>Applied Date</TableHead>
+                                    <TableHead>Notes</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {statDetails.applications
+                                    .filter((app: any) =>
+                                      `${app.profiles?.full_name || ""} ${app.profiles?.email || ""} ${app.opportunities?.title || ""} ${app.status || ""} ${app.application_notes || ""}`
+                                        .toLowerCase()
+                                        .includes(statSearchTerm.toLowerCase())
+                                    )
+                                    .map((app: any) => (
+                                    <TableRow key={app.id}>
+                                      <TableCell>
+                                        {app.profiles?.full_name ||
+                                          app.profiles?.email ||
+                                          "Unknown User"}
+                                      </TableCell>
+                                      <TableCell>
+                                        {app.opportunities?.title || "-"}
+                                      </TableCell>
+                                      <TableCell>
+                                        <Badge variant="outline" className="capitalize">
+                                          {app.status || "applied"}
+                                        </Badge>
+                                      </TableCell>
+                                      <TableCell>
+                                        {app.applied_at
+                                          ? format(
+                                              new Date(app.applied_at),
+                                              "MMM dd, yyyy"
+                                            )
+                                          : "-"}
+                                      </TableCell>
+                                      <TableCell>
+                                        {app.application_notes || "-"}
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Statistics Charts Section */}
+              <div className="space-y-6 mt-6">
+                {loadingCharts ? (
+                  <Card>
+                    <CardContent className="flex justify-center items-center py-24">
+                      <div className="space-y-4 text-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+                        <p className="text-muted-foreground">Loading charts...</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <>
+                    {/* Time Series Activity Chart */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Activity Over Time (Last 30 Days)</CardTitle>
+                        <CardDescription>
+                          Daily trends for opportunities, users, and applications
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <ResponsiveContainer width="100%" height={400}>
+                          <AreaChart
+                            data={chartData.timeSeries || []}
+                            margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                          >
+                            <defs>
+                              <linearGradient id="colorOpps" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
+                                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                              </linearGradient>
+                              <linearGradient id="colorUsers" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
+                                <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                              </linearGradient>
+                              <linearGradient id="colorApps" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8} />
+                                <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+                            <XAxis
+                              dataKey="date"
+                              stroke={isDarkMode ? "#ffffff" : "hsl(var(--muted-foreground))"}
+                              fontSize={12}
+                              tickLine={false}
+                              axisLine={false}
+                              tick={{ fill: isDarkMode ? "#ffffff" : "hsl(var(--muted-foreground))" }}
+                            />
+                            <YAxis
+                              stroke={isDarkMode ? "#ffffff" : "hsl(var(--muted-foreground))"}
+                              fontSize={12}
+                              tickLine={false}
+                              axisLine={false}
+                              tick={{ fill: isDarkMode ? "#ffffff" : "hsl(var(--muted-foreground))" }}
+                            />
+                            <Tooltip
+                              contentStyle={{
+                                backgroundColor: "hsl(var(--card))",
+                                border: "1px solid hsl(var(--border))",
+                                borderRadius: "8px",
+                                padding: "12px",
+                                boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                                color: isDarkMode ? "#ffffff" : "hsl(var(--foreground))",
+                              }}
+                              labelStyle={{ color: isDarkMode ? "#ffffff" : "hsl(var(--foreground))" }}
+                              cursor={{ stroke: "hsl(var(--border))", strokeWidth: 1 }}
+                            />
+                            <Legend
+                              wrapperStyle={{ 
+                                paddingTop: "20px",
+                                color: isDarkMode ? "#ffffff" : "hsl(var(--foreground))"
+                              }}
+                              iconType="circle"
+                            />
+                            <Area
+                              type="monotone"
+                              dataKey="opportunities"
+                              stackId="1"
+                              stroke="#3b82f6"
+                              strokeWidth={2}
+                              fillOpacity={1}
+                              fill="url(#colorOpps)"
+                              name="Opportunities"
+                            />
+                            <Area
+                              type="monotone"
+                              dataKey="users"
+                              stackId="1"
+                              stroke="#10b981"
+                              strokeWidth={2}
+                              fillOpacity={1}
+                              fill="url(#colorUsers)"
+                              name="New Users"
+                            />
+                            <Area
+                              type="monotone"
+                              dataKey="applications"
+                              stackId="1"
+                              stroke="#8b5cf6"
+                              strokeWidth={2}
+                              fillOpacity={1}
+                              fill="url(#colorApps)"
+                              name="Applications"
+                            />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </CardContent>
+                    </Card>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Status Distribution */}
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Opportunity Status Distribution</CardTitle>
+                          <CardDescription>
+                            Breakdown of all opportunities by approval status
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <ResponsiveContainer width="100%" height={300}>
+                            <PieChart>
+                              <Pie
+                                data={chartData.statusDistribution || []}
+                                cx="50%"
+                                cy="50%"
+                                labelLine={false}
+                                label={(entry: any) => {
+                                  const RADIAN = Math.PI / 180;
+                                  const radius = 120;
+                                  const x = entry.cx + radius * Math.cos(-entry.midAngle * RADIAN);
+                                  const y = entry.cy + radius * Math.sin(-entry.midAngle * RADIAN);
+                                  return (
+                                    <text
+                                      x={x}
+                                      y={y}
+                                      fill={isDarkMode ? "#ffffff" : "hsl(var(--foreground))"}
+                                      textAnchor={x > entry.cx ? "start" : "end"}
+                                      dominantBaseline="central"
+                                      fontSize={12}
+                                      fontWeight={500}
+                                    >
+                                      {`${entry.name}: ${(entry.percent * 100).toFixed(0)}%`}
+                                    </text>
+                                  );
+                                }}
+                                outerRadius={100}
+                                fill="#8884d8"
+                                dataKey="value"
+                              >
+                                {chartData.statusDistribution?.map((entry, index) => {
+                                  const colors = ["#10b981", "#f59e0b", "#ef4444"];
+                                  return (
+                                    <Cell
+                                      key={`cell-${index}`}
+                                      fill={colors[index % colors.length]}
+                                    />
+                                  );
+                                })}
+                              </Pie>
+                              <Tooltip
+                                contentStyle={{
+                                  backgroundColor: "hsl(var(--card))",
+                                  border: "1px solid hsl(var(--border))",
+                                  borderRadius: "8px",
+                                  padding: "12px",
+                                  color: isDarkMode ? "#ffffff" : "hsl(var(--foreground))",
+                                }}
+                                labelStyle={{ color: isDarkMode ? "#ffffff" : "hsl(var(--foreground))" }}
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
+                          <div className="mt-6 space-y-3">
+                            {chartData.statusDistribution?.map((entry, index) => {
+                              const colors = ["#10b981", "#f59e0b", "#ef4444"];
+                              const total = chartData.statusDistribution?.reduce(
+                                (sum, e) => sum + e.value,
+                                0
+                              ) || 1;
+                              const percentage = ((entry.value / total) * 100).toFixed(1);
+                              return (
+                                <div
+                                  key={entry.name}
+                                  className="flex items-center justify-between text-sm"
+                                >
+                                  <span className="flex items-center gap-2">
+                                    <div
+                                      className="w-3 h-3 rounded-full"
+                                      style={{
+                                        backgroundColor: colors[index % colors.length],
+                                      }}
+                                    ></div>
+                                    <span className="text-muted-foreground">
+                                      {entry.name}
+                                    </span>
+                                  </span>
+                                  <div className="flex items-center gap-3">
+                                    <span className="text-muted-foreground text-xs">
+                                      {percentage}%
+                                    </span>
+                                    <span className="font-semibold text-foreground">
+                                      {entry.value}
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Category Breakdown */}
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Opportunities by Category</CardTitle>
+                          <CardDescription>
+                            Distribution of approved opportunities across categories
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <ResponsiveContainer width="100%" height={300}>
+                            <BarChart
+                              data={chartData.categoryBreakdown || []}
+                              layout="vertical"
+                              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                            >
+                              <CartesianGrid
+                                strokeDasharray="3 3"
+                                stroke="hsl(var(--border))"
+                                opacity={0.3}
+                              />
+                              <XAxis
+                                type="number"
+                                stroke={isDarkMode ? "#ffffff" : "hsl(var(--muted-foreground))"}
+                                fontSize={12}
+                                tickLine={false}
+                                axisLine={false}
+                                tick={{ fill: isDarkMode ? "#ffffff" : "hsl(var(--muted-foreground))" }}
+                              />
+                              <YAxis
+                                dataKey="name"
+                                type="category"
+                                width={100}
+                                stroke={isDarkMode ? "#ffffff" : "hsl(var(--muted-foreground))"}
+                                fontSize={12}
+                                tickLine={false}
+                                axisLine={false}
+                                tick={{ fill: isDarkMode ? "#ffffff" : "hsl(var(--muted-foreground))" }}
+                              />
+                              <Tooltip
+                                contentStyle={{
+                                  backgroundColor: "hsl(var(--card))",
+                                  border: "1px solid hsl(var(--border))",
+                                  borderRadius: "8px",
+                                  padding: "12px",
+                                  color: isDarkMode ? "#ffffff" : "hsl(var(--foreground))",
+                                }}
+                                labelStyle={{ color: isDarkMode ? "#ffffff" : "hsl(var(--foreground))" }}
+                              />
+                              <Bar
+                                dataKey="value"
+                                fill="#3b82f6"
+                                radius={[0, 8, 8, 0]}
+                              />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* User Growth Trend */}
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>User Growth Trend (8 Weeks)</CardTitle>
+                          <CardDescription>
+                            Cumulative user growth and weekly new user registrations
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <ResponsiveContainer width="100%" height={300}>
+                            <ComposedChart
+                              data={chartData.userGrowth || []}
+                              margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                            >
+                              <CartesianGrid
+                                strokeDasharray="3 3"
+                                stroke="hsl(var(--border))"
+                                opacity={0.3}
+                              />
+                              <XAxis
+                                dataKey="period"
+                                stroke={isDarkMode ? "#ffffff" : "hsl(var(--muted-foreground))"}
+                                fontSize={12}
+                                tickLine={false}
+                                axisLine={false}
+                                tick={{ fill: isDarkMode ? "#ffffff" : "hsl(var(--muted-foreground))" }}
+                              />
+                              <YAxis
+                                yAxisId="left"
+                                stroke={isDarkMode ? "#ffffff" : "hsl(var(--muted-foreground))"}
+                                fontSize={12}
+                                tickLine={false}
+                                axisLine={false}
+                                tick={{ fill: isDarkMode ? "#ffffff" : "hsl(var(--muted-foreground))" }}
+                              />
+                              <YAxis
+                                yAxisId="right"
+                                orientation="right"
+                                stroke={isDarkMode ? "#ffffff" : "hsl(var(--muted-foreground))"}
+                                fontSize={12}
+                                tickLine={false}
+                                axisLine={false}
+                                tick={{ fill: isDarkMode ? "#ffffff" : "hsl(var(--muted-foreground))" }}
+                              />
+                              <Tooltip
+                                contentStyle={{
+                                  backgroundColor: "hsl(var(--card))",
+                                  border: "1px solid hsl(var(--border))",
+                                  borderRadius: "8px",
+                                  padding: "12px",
+                                  color: isDarkMode ? "#ffffff" : "hsl(var(--foreground))",
+                                }}
+                                labelStyle={{ color: isDarkMode ? "#ffffff" : "hsl(var(--foreground))" }}
+                              />
+                              <Legend
+                                wrapperStyle={{ color: isDarkMode ? "#ffffff" : "hsl(var(--foreground))" }}
+                              />
+                              <Bar
+                                yAxisId="right"
+                                dataKey="new"
+                                fill="#10b981"
+                                name="New Users"
+                                radius={[4, 4, 0, 0]}
+                              />
+                              <Line
+                                yAxisId="left"
+                                type="monotone"
+                                dataKey="total"
+                                stroke="#3b82f6"
+                                strokeWidth={3}
+                                dot={{ r: 4, fill: "#3b82f6" }}
+                                name="Total Users"
+                              />
+                            </ComposedChart>
+                          </ResponsiveContainer>
+                        </CardContent>
+                      </Card>
+
+                      {/* Application Trends */}
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Application Trends (8 Weeks)</CardTitle>
+                          <CardDescription>
+                            Weekly application submissions over time
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <ResponsiveContainer width="100%" height={300}>
+                            <BarChart
+                              data={chartData.applicationTrends || []}
+                              margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                            >
+                              <CartesianGrid
+                                strokeDasharray="3 3"
+                                stroke="hsl(var(--border))"
+                                opacity={0.3}
+                              />
+                              <XAxis
+                                dataKey="period"
+                                stroke={isDarkMode ? "#ffffff" : "hsl(var(--muted-foreground))"}
+                                fontSize={12}
+                                tickLine={false}
+                                axisLine={false}
+                                tick={{ fill: isDarkMode ? "#ffffff" : "hsl(var(--muted-foreground))" }}
+                              />
+                              <YAxis
+                                stroke={isDarkMode ? "#ffffff" : "hsl(var(--muted-foreground))"}
+                                fontSize={12}
+                                tickLine={false}
+                                axisLine={false}
+                                tick={{ fill: isDarkMode ? "#ffffff" : "hsl(var(--muted-foreground))" }}
+                              />
+                              <Tooltip
+                                contentStyle={{
+                                  backgroundColor: "hsl(var(--card))",
+                                  border: "1px solid hsl(var(--border))",
+                                  borderRadius: "8px",
+                                  padding: "12px",
+                                  color: isDarkMode ? "#ffffff" : "hsl(var(--foreground))",
+                                }}
+                                labelStyle={{ color: isDarkMode ? "#ffffff" : "hsl(var(--foreground))" }}
+                              />
+                              <Bar
+                                dataKey="applications"
+                                fill="#8b5cf6"
+                                fillOpacity={1}
+                                radius={[8, 8, 0, 0]}
+                                name="Applications"
+                                stroke="#8b5cf6"
+                                strokeWidth={0}
+                              />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </>
+                )}
               </div>
 
               {stats.pendingOpportunities > 0 && (
