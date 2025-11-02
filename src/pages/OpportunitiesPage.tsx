@@ -25,6 +25,56 @@ import { Badge } from "../components/ui/badge";
 import { Separator } from "../components/ui/separator";
 import { getCache, setCache, dedupeRequest } from "../lib/utils";
 
+// Custom hook for animated number counting
+function useAnimatedCount(target: number, duration: number = 2000, startDelay: number = 0) {
+  const [count, setCount] = useState(0);
+  const [hasStarted, setHasStarted] = useState(false);
+
+  useEffect(() => {
+    if (!hasStarted && target > 0) {
+      const startTimer = setTimeout(() => {
+        setHasStarted(true);
+      }, startDelay);
+
+      return () => clearTimeout(startTimer);
+    }
+  }, [target, hasStarted, startDelay]);
+
+  useEffect(() => {
+    if (!hasStarted || target === 0) {
+      setCount(0);
+      return;
+    }
+
+    const startTime = Date.now();
+    const startValue = 0;
+    const endValue = target;
+
+    const animate = () => {
+      const now = Date.now();
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+
+      // Easing function for smooth animation (ease-out cubic)
+      const easeOutCubic = 1 - Math.pow(1 - progress, 3);
+      const currentValue = Math.floor(startValue + (endValue - startValue) * easeOutCubic);
+
+      setCount(currentValue);
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        setCount(endValue);
+      }
+    };
+
+    const animationFrame = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animationFrame);
+  }, [target, duration, hasStarted]);
+
+  return count;
+}
+
 export default function OpportunitiesPage() {
   const { user } = useAuth();
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
@@ -39,6 +89,11 @@ export default function OpportunitiesPage() {
     "newest"
   );
   const [showAll, setShowAll] = useState(false);
+
+  // Animated counts with staggered delays
+  const animatedOpportunitiesCount = useAnimatedCount(opportunities.length, 2000, 200);
+  const animatedCategoriesCount = useAnimatedCount(6, 1500, 400);
+  const hasStartedAnimation = opportunities.length > 0;
 
   const categories = [
     { value: "all", label: "All Categories" },
@@ -233,21 +288,43 @@ export default function OpportunitiesPage() {
             {/* Quick stats */}
             <div className="flex flex-wrap justify-center gap-8 pt-8 text-center">
               <div className="space-y-1">
-                <div className="text-3xl font-bold text-primary">
-                  {opportunities.length}+
+                <div 
+                  className="text-3xl font-bold text-primary transition-all duration-300"
+                  style={{
+                    opacity: hasStartedAnimation ? 1 : 0,
+                    transform: hasStartedAnimation ? 'translateY(0)' : 'translateY(10px)'
+                  }}
+                >
+                  {animatedOpportunitiesCount}+
                 </div>
                 <div className="text-sm text-muted-foreground font-medium">
                   Active Opportunities
                 </div>
               </div>
               <div className="space-y-1">
-                <div className="text-3xl font-bold text-primary">6</div>
+                <div 
+                  className="text-3xl font-bold text-primary transition-all duration-300"
+                  style={{
+                    opacity: hasStartedAnimation ? 1 : 0,
+                    transform: hasStartedAnimation ? 'translateY(0)' : 'translateY(10px)'
+                  }}
+                >
+                  {animatedCategoriesCount}
+                </div>
                 <div className="text-sm text-muted-foreground font-medium">
                   Categories
                 </div>
               </div>
               <div className="space-y-1">
-                <div className="text-3xl font-bold text-primary">24/7</div>
+                <div 
+                  className="text-3xl font-bold text-primary transition-all duration-300"
+                  style={{
+                    opacity: hasStartedAnimation ? 1 : 0,
+                    transform: hasStartedAnimation ? 'translateY(0)' : 'translateY(10px)'
+                  }}
+                >
+                  24/7
+                </div>
                 <div className="text-sm text-muted-foreground font-medium">
                   New Updates
                 </div>
