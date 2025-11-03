@@ -198,10 +198,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!existingProfile) {
         // Create new profile below
       } else {
-        // Ensure admin stays in sync with email rule
+        // Ensure leapboard5@gmail.com is always admin, but respect manually set admin roles for others
         const normalizedEmail = (user.email || "").toLowerCase();
         const shouldBeAdmin = normalizedEmail === "leapboard5@gmail.com";
-        if ((shouldBeAdmin && existingProfile.role !== "admin") || (!shouldBeAdmin && existingProfile.role !== "student")) {
+        
+        // Only auto-update role if:
+        // 1. It's leapboard5@gmail.com and they're not admin (force admin)
+        // 2. It's NOT leapboard5@gmail.com and they're admin but shouldn't be (only if they don't have a manually set admin role)
+        // However, we want to respect manually set admin roles, so only force admin for leapboard5@gmail.com
+        if (shouldBeAdmin && existingProfile.role !== "admin") {
+          // Force admin status for leapboard5@gmail.com
           // Extract full_name from user metadata if not already set in profile
           const fullName = 
             existingProfile.full_name ||
@@ -215,7 +221,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const { data: updated, error: updateError } = await supabase
             .from("profiles")
             .update({ 
-              role: shouldBeAdmin ? "admin" : "student", 
+              role: "admin", 
               email: user.email || existingProfile.email,
               full_name: fullName,
             })
@@ -231,6 +237,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setCache(cacheKey, updated, 300_000);
           return;
         }
+        // For all other cases, respect the existing role (manually set admin roles are preserved)
         setProfile(existingProfile as Profile);
         setCache(cacheKey, existingProfile, 300_000);
         return;

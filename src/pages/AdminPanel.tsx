@@ -53,6 +53,7 @@ import {
   HiClock,
   HiEye,
   HiPencil,
+  HiCheckCircle,
 } from "react-icons/hi";
 import { format } from "date-fns";
 import type { Database } from "../types/database.types";
@@ -108,6 +109,18 @@ export default function AdminPanel() {
   }>({});
   const [loadingStatDetails, setLoadingStatDetails] = useState(false);
   const [statSearchTerm, setStatSearchTerm] = useState("");
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+
+  // Auto-close success dialog after 3 seconds
+  useEffect(() => {
+    if (showSuccessDialog) {
+      const timer = setTimeout(() => {
+        setShowSuccessDialog(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [showSuccessDialog]);
 
   useEffect(() => {
     // Only fetch what's needed for the initial tab (overview stats)
@@ -298,14 +311,32 @@ export default function AdminPanel() {
     try {
       const { error } = await supabase
         .from("profiles")
-        .update({ role: newRole })
+        .update({ role: newRole, updated_at: new Date().toISOString() })
         .eq("id", userId);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error updating user role:", error);
+        alert(error.message || "Failed to update user role. Please check database permissions.");
+        return;
+      }
 
+      // Clear cache to reflect the update
+      localStorage.removeItem("admin:profiles:v1");
+      
+      // Clear the user's profile cache if they're viewing their own profile
+      const profileCacheKey = `profile:${userId}:v1`;
+      localStorage.removeItem(profileCacheKey);
+      
       await fetchProfiles();
+      
+      // Show success message in centered dialog
+      const userProfile = profiles.find(p => p.id === userId);
+      const userName = userProfile?.full_name || userProfile?.email || "User";
+      setSuccessMessage(`Successfully ${newRole === "admin" ? "promoted" : "demoted"} ${userName} to ${newRole}.`);
+      setShowSuccessDialog(true);
     } catch (error) {
       console.error("Error updating user role:", error);
+      alert(error instanceof Error ? error.message : "Failed to update user role. Please try again.");
     } finally {
       setUpdating(null);
     }
@@ -1442,6 +1473,23 @@ export default function AdminPanel() {
               </>
             )}
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Success Dialog */}
+      <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-center justify-center mb-4">
+              <div className="flex items-center justify-center w-16 h-16 rounded-full bg-green-100">
+                <HiCheckCircle className="w-8 h-8 text-green-600" />
+              </div>
+            </div>
+            <DialogTitle className="text-center">Success!</DialogTitle>
+            <DialogDescription className="text-center">
+              {successMessage}
+            </DialogDescription>
+          </DialogHeader>
         </DialogContent>
       </Dialog>
     </div>
