@@ -1,0 +1,17 @@
+# robots.txt for LeapBod
+User-agent: *
+Allow: /
+Allow: /opportunities
+Allow: /dashboard
+Allow: /submit
+
+# Disallow admin panel and auth routes
+Disallow: /admin
+Disallow: /auth/
+
+# Sitemap location
+Sitemap: https://leapbod.vercel.app/sitemap.xml
+
+# Crawl delay (optional)
+Crawl-delay: 1
+

@@ -136,7 +136,7 @@ export default function Navigation() {
                   L
                 </span>
               </div>
-              <span className="text-xl font-bold text-foreground">Leapbod</span>
+              <span className="text-xl font-bold text-foreground">LeapBod</span>
             </Link>
           </div>
 
