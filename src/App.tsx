@@ -9,6 +9,7 @@ import OpportunitiesPage from "./pages/OpportunitiesPage";
 import SubmitOpportunity from "./pages/SubmitOpportunity";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { NetworkStatus } from "./components/NetworkStatus";
 
 function RouteTracker() {
   const location = useLocation();
@@ -78,6 +79,7 @@ function App() {
         {/* Catch all - redirect to home */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <NetworkStatus />
     </div>
   );
 }
