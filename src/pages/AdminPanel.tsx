@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import Navigation from "../components/Navigation";
+import Footer from "../components/Footer";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "../components/ui/button";
@@ -536,9 +537,9 @@ export default function AdminPanel() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="landing-page" style={{ minHeight: '100vh', background: 'var(--lb-paper)', display: 'flex', flexDirection: 'column' }}>
       <Navigation />
-      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8" style={{ flex: 1, width: '100%', padding: '100px 20px' }}>
         <div className="px-4 py-6 sm:px-0">
           <Tabs
             value={activeTab}
@@ -1492,6 +1493,7 @@ export default function AdminPanel() {
           </DialogHeader>
         </DialogContent>
       </Dialog>
+      <Footer />
     </div>
   );
 }

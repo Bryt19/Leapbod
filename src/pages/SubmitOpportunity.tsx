@@ -1,43 +1,17 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { HiPlus, HiX, HiInformationCircle } from "react-icons/hi";
 import Navigation from "../components/Navigation";
+import Footer from "../components/Footer";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
-import { Button } from "../components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "../components/ui/card";
-import { Input } from "../components/ui/input";
-import { Textarea } from "../components/ui/textarea";
-import { Label } from "../components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../components/ui/select";
-import { Badge } from "../components/ui/badge";
-import { Separator } from "../components/ui/separator";
-import { Calendar } from "../components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "../components/ui/popover";
-import { CalendarIcon } from "lucide-react";
-import { format } from "date-fns";
+import "./Landing.css";
+import { HiPlus, HiX, HiInformationCircle } from "react-icons/hi";
 
 interface FormData {
   title: string;
   description: string;
   category: string;
-  deadline: Date | undefined;
+  deadline: string;
   location: string;
   organization: string;
   application_url: string;
@@ -49,7 +23,7 @@ const initialFormData: FormData = {
   title: "",
   description: "",
   category: "internship",
-  deadline: undefined,
+  deadline: "",
   location: "",
   organization: "",
   application_url: "",
@@ -65,29 +39,22 @@ export default function SubmitOpportunity() {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const categories = [
-    { value: "internship", label: "Internship", icon: "💼" },
+    { value: "internship", label: "Internship", icon: "🚀" },
     { value: "scholarship", label: "Scholarship", icon: "🎓" },
+    { value: "grant", label: "Grant", icon: "💰" },
     { value: "competition", label: "Competition", icon: "🏆" },
-    { value: "event", label: "Event", icon: "📅" },
-    { value: "job", label: "Job", icon: "💼" },
-    { value: "research", label: "Research", icon: "🔬" },
+    { value: "event", label: "Event", icon: "🎪" },
+    { value: "job", label: "Job", icon: "🏢" },
+    { value: "research", label: "Research", icon: "🧪" },
+    { value: "fellowship", label: "Fellowship", icon: "🔬" },
   ];
 
-  const handleInputChange = (
-    field: keyof FormData,
-    value: string | Date | undefined
-  ) => {
+  const handleInputChange = (field: keyof FormData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors((prev) => ({ ...prev, [field]: "" }));
-    }
+    if (errors[field]) setErrors((prev) => ({ ...prev, [field]: "" }));
   };
 
-  const handleArrayFieldChange = (
-    field: "requirements" | "benefits",
-    index: number,
-    value: string
-  ) => {
+  const handleArrayFieldChange = (field: "requirements" | "benefits", index: number, value: string) => {
     setFormData((prev) => ({
       ...prev,
       [field]: prev[field].map((item, i) => (i === index ? value : item)),
@@ -95,109 +62,61 @@ export default function SubmitOpportunity() {
   };
 
   const addArrayField = (field: "requirements" | "benefits") => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: [...prev[field], ""],
-    }));
+    setFormData((prev) => ({ ...prev, [field]: [...prev[field], ""] }));
   };
 
-  const removeArrayField = (
-    field: "requirements" | "benefits",
-    index: number
-  ) => {
+  const removeArrayField = (field: "requirements" | "benefits", index: number) => {
     if (formData[field].length > 1) {
-      setFormData((prev) => ({
-        ...prev,
-        [field]: prev[field].filter((_, i) => i !== index),
-      }));
+      setFormData((prev) => ({ ...prev, [field]: prev[field].filter((_, i) => i !== index) }));
     }
   };
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
-
-    if (!formData.title.trim()) {
-      newErrors.title = "Title is required";
-    }
-
-    if (!formData.description.trim()) {
-      newErrors.description = "Description is required";
-    } else if (formData.description.length < 50) {
-      newErrors.description = "Description must be at least 50 characters";
-    }
-
-    if (!formData.organization.trim()) {
-      newErrors.organization = "Organization is required";
-    }
-
-    if (formData.application_url && !isValidUrl(formData.application_url)) {
-      newErrors.application_url = "Please enter a valid URL";
-    }
-
+    if (!formData.title.trim()) newErrors.title = "Title is required";
+    if (!formData.description.trim()) { newErrors.description = "Description is required"; } 
+    else if (formData.description.length < 50) { newErrors.description = "Description must be at least 50 characters"; }
+    if (!formData.organization.trim()) newErrors.organization = "Organization is required";
+    if (formData.application_url && !isValidUrl(formData.application_url)) newErrors.application_url = "Please enter a valid URL";
+    
     if (formData.deadline) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      if (formData.deadline < today) {
-        newErrors.deadline = "Deadline cannot be in the past";
-      }
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      if (new Date(formData.deadline) < today) newErrors.deadline = "Deadline cannot be in the past";
     }
 
     const validRequirements = formData.requirements.filter((req) => req.trim());
-    if (validRequirements.length === 0) {
-      newErrors.requirements = "At least one requirement is needed";
-    }
+    if (validRequirements.length === 0) newErrors.requirements = "At least one requirement is needed";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const isValidUrl = (url: string): boolean => {
-    try {
-      new URL(url);
-      return true;
-    } catch {
-      return false;
-    }
+    try { new URL(url); return true; } catch { return false; }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!validateForm()) {
-      window.scrollTo(0, 0);
-      return;
-    }
-
+    if (!validateForm()) { window.scrollTo(0, 0); return; }
     if (!user) {
-      setErrors((prev) => ({
-        ...prev,
-        general: "You must be logged in to submit an opportunity",
-      }));
-      return;
+      setErrors((prev) => ({ ...prev, general: "You must be logged in to submit an opportunity" })); return;
     }
 
     setLoading(true);
     try {
-      const cleanRequirements = formData.requirements.filter((req) =>
-        req.trim()
-      );
-      const cleanBenefits = formData.benefits.filter((benefit) =>
-        benefit.trim()
-      );
+      const cleanReqs = formData.requirements.filter(r => r.trim());
+      const cleanBens = formData.benefits.filter(b => b.trim());
 
       const submissionData = {
         title: formData.title.trim(),
         description: formData.description.trim(),
         category: formData.category,
-        deadline: formData.deadline
-          ? formData.deadline.toISOString().split("T")[0]
-          : null,
+        deadline: formData.deadline ? new Date(formData.deadline).toISOString() : null,
         location: formData.location.trim() || null,
         organization: formData.organization.trim(),
         application_url: formData.application_url.trim() || null,
-        requirements: cleanRequirements,
-        benefits: cleanBenefits.length > 0 ? cleanBenefits : null,
+        requirements: cleanReqs,
+        benefits: cleanBens.length > 0 ? cleanBens : null,
         submitted_by: user.id,
         status: "pending",
         views_count: 0,
@@ -206,418 +125,166 @@ export default function SubmitOpportunity() {
         updated_at: new Date().toISOString(),
       };
 
-      const { error: insertError } = await supabase
-        .from("opportunities")
-        .insert([submissionData]);
+      const { error: insertError } = await supabase.from("opportunities").insert([submissionData]);
+      if (insertError) throw insertError;
 
-      if (insertError) {
-        throw insertError;
-      }
-
-      navigate("/opportunities", {
-        state: {
-          message:
-            "Opportunity submitted successfully! It will be reviewed by our team.",
-          type: "success",
-        },
-      });
-    } catch (error) {
-      console.error("Error submitting opportunity:", error);
-
-      let errorMessage = "Failed to submit opportunity. Please try again.";
-      if (error && typeof error === "object" && "message" in error) {
-        errorMessage = (error as { message: string }).message;
-      }
-
-      setErrors((prev) => ({
-        ...prev,
-        general: errorMessage,
-      }));
-
+      navigate("/dashboard?submitted=true");
+    } catch (error: any) {
+      setErrors((prev) => ({ ...prev, general: error.message || "Failed to submit. Please try again." }));
       window.scrollTo(0, 0);
     } finally {
       setLoading(false);
     }
   };
 
-  const selectedCategory = categories.find(
-    (cat) => cat.value === formData.category
-  );
-
   return (
-    <div className="min-h-screen bg-background">
+    <div className="landing-page" style={{ minHeight: '100vh', background: 'var(--lb-paper)', display: 'flex', flexDirection: 'column' }}>
       <Navigation />
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="text-center space-y-4 mb-8">
-          <h1 className="text-4xl font-bold tracking-tight text-foreground">
-            Submit an Opportunity
-          </h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Share an amazing opportunity with the community. Help fellow
-            students discover their next big break.
-          </p>
+      <div style={{ flex: 1, maxWidth: '800px', width: '100%', margin: '0 auto', padding: '100px 20px' }}>
+        
+        <div style={{ textAlign: 'center', marginBottom: '40px' }} className="reveal visible">
+          <div className="sec-eye" style={{ background: 'var(--lb-ink)', color: 'var(--lb-paper)', padding: '6px 16px', borderRadius: '32px', display: 'inline-block', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600, marginBottom: '24px' }}>Submit an Opportunity</div>
+          <h1 className="hero-h1" style={{ fontSize: '48px', lineHeight: 1.1, marginBottom: '16px' }}>Share the<br />next big thing</h1>
+          <p className="hero-sub" style={{ fontSize: '18px', margin: '0 auto', maxWidth: '500px' }}>Help the community grow by sharing internships, jobs, events, and other opportunities.</p>
         </div>
 
-        {/* Info Banner */}
-        <Card className="mb-8 border-blue-200 bg-blue-50/50">
-          <CardContent className="p-6">
-            <div className="flex">
-              <HiInformationCircle className="h-5 w-5 text-blue-600 mt-0.5" />
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-blue-900 mb-2">
-                  Submission Guidelines
-                </h3>
-                <div className="text-sm text-blue-800 space-y-1">
-                  <div className="flex flex-wrap gap-2">
-                    <Badge variant="secondary">✅ Accurate information</Badge>
-                    <Badge variant="secondary">📝 Clear requirements</Badge>
-                    <Badge variant="secondary">👥 Reviewed by team</Badge>
-                    <Badge variant="secondary">🔔 Status notifications</Badge>
-                  </div>
-                </div>
-              </div>
+        {errors.general && (
+          <div style={{ background: '#ff3366', color: 'white', padding: '16px', borderRadius: '16px', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <HiInformationCircle size={20} /> {errors.general}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} style={{ background: 'var(--lb-card)', padding: '40px', borderRadius: '32px', boxShadow: 'var(--lb-shadow-lg)', border: '1px solid var(--lb-border)' }}>
+          
+          <h2 style={{ fontFamily: 'Syne, sans-serif', fontSize: '24px', fontWeight: 700, marginBottom: '24px', borderBottom: '1px solid var(--lb-border)', paddingBottom: '16px' }}>Basic Details</h2>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', marginBottom: '48px' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, fontSize: '14px' }}>Opportunity Title *</label>
+              <input 
+                className="s-input" 
+                style={{ width: '100%', border: errors.title ? '1px solid #ff3366' : '1px solid var(--lb-border)', background: 'var(--lb-paper)', padding: '16px', borderRadius: '16px' }}
+                value={formData.title} 
+                onChange={(e) => handleInputChange("title", e.target.value)}
+                placeholder="e.g., Google Summer Internship 2024"
+              />
+              {errors.title && <div style={{ color: '#ff3366', fontSize: '12px', marginTop: '6px' }}>{errors.title}</div>}
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-8">
-          {errors.general && (
-            <div className="bg-destructive/15 border border-destructive text-destructive px-4 py-3 rounded-lg">
-              <p className="flex items-center gap-2">
-                <HiInformationCircle className="h-5 w-5" />
-                {errors.general}
-              </p>
-            </div>
-          )}
-
-          {/* Basic Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-xl">Basic Information</CardTitle>
-              <CardDescription>
-                Tell us about the opportunity and who's offering it
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Title */}
-              <div className="space-y-2">
-                <Label htmlFor="title">Opportunity Title *</Label>
-                <Input
-                  id="title"
-                  value={formData.title}
-                  onChange={(e) => handleInputChange("title", e.target.value)}
-                  placeholder="e.g., Google Summer Internship 2024"
-                  className={errors.title ? "border-destructive" : ""}
-                />
-                {errors.title && (
-                  <p className="text-sm text-destructive">{errors.title}</p>
-                )}
-              </div>
-
-              {/* Category and Organization */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="category">Category *</Label>
-                  <Select
-                    value={formData.category}
-                    onValueChange={(value) =>
-                      handleInputChange("category", value)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category">
-                        {selectedCategory && (
-                          <span className="flex items-center gap-2">
-                            <span>{selectedCategory.icon}</span>
-                            <span>{selectedCategory.label}</span>
-                          </span>
-                        )}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((category) => (
-                        <SelectItem key={category.value} value={category.value}>
-                          <span className="flex items-center gap-2">
-                            <span>{category.icon}</span>
-                            <span>{category.label}</span>
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="organization">Organization *</Label>
-                  <Input
-                    id="organization"
-                    value={formData.organization}
-                    onChange={(e) =>
-                      handleInputChange("organization", e.target.value)
-                    }
-                    placeholder="e.g., Google, Microsoft, Stanford University"
-                    className={errors.organization ? "border-destructive" : ""}
-                  />
-                  {errors.organization && (
-                    <p className="text-sm text-destructive">
-                      {errors.organization}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Description */}
-              <div className="space-y-2">
-                <Label htmlFor="description">Description *</Label>
-                <Textarea
-                  id="description"
-                  rows={5}
-                  value={formData.description}
-                  onChange={(e) =>
-                    handleInputChange("description", e.target.value)
-                  }
-                  placeholder="Provide a detailed description of the opportunity, what it involves, and what makes it special..."
-                  className={errors.description ? "border-destructive" : ""}
-                />
-                <div className="flex justify-between items-center">
-                  <p className="text-sm text-muted-foreground">
-                    {formData.description.length} characters (minimum 50)
-                  </p>
-                  {formData.description.length >= 50 && (
-                    <Badge
-                      variant="secondary"
-                      className="text-green-700 bg-green-100"
-                    >
-                      ✓ Good length
-                    </Badge>
-                  )}
-                </div>
-                {errors.description && (
-                  <p className="text-sm text-destructive">
-                    {errors.description}
-                  </p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Additional Details */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-xl">Additional Details</CardTitle>
-              <CardDescription>
-                Help students understand the logistics and timeline
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Location and Deadline */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="location">Location</Label>
-                  <Input
-                    id="location"
-                    value={formData.location}
-                    onChange={(e) =>
-                      handleInputChange("location", e.target.value)
-                    }
-                    placeholder="e.g., Remote, San Francisco, CA"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Application Deadline</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={`w-full justify-start text-left font-normal ${
-                          !formData.deadline && "text-muted-foreground"
-                        } ${errors.deadline ? "border-destructive" : ""}`}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {formData.deadline
-                          ? format(formData.deadline, "PPP")
-                          : "Pick a date"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={formData.deadline}
-                        onSelect={(date) => handleInputChange("deadline", date)}
-                        disabled={(date) => date < new Date()}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  {errors.deadline && (
-                    <p className="text-sm text-destructive">
-                      {errors.deadline}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Application URL */}
-              <div className="space-y-2">
-                <Label htmlFor="application_url">Application URL</Label>
-                <Input
-                  id="application_url"
-                  type="url"
-                  value={formData.application_url}
-                  onChange={(e) =>
-                    handleInputChange("application_url", e.target.value)
-                  }
-                  placeholder="https://company.com/apply"
-                  className={errors.application_url ? "border-destructive" : ""}
-                />
-                {errors.application_url && (
-                  <p className="text-sm text-destructive">
-                    {errors.application_url}
-                  </p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Requirements */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-xl">Requirements *</CardTitle>
-              <CardDescription>
-                List what applicants need to qualify for this opportunity
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {formData.requirements.map((requirement, index) => (
-                <div key={index} className="flex gap-2">
-                  <Input
-                    value={requirement}
-                    onChange={(e) =>
-                      handleArrayFieldChange(
-                        "requirements",
-                        index,
-                        e.target.value
-                      )
-                    }
-                    placeholder={`Requirement ${index + 1}`}
-                    className="flex-1"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => removeArrayField("requirements", index)}
-                    disabled={formData.requirements.length === 1}
-                    className="px-3"
-                  >
-                    <HiX className="w-4 h-4" />
-                  </Button>
-                </div>
-              ))}
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => addArrayField("requirements")}
-                className="w-full"
-              >
-                <HiPlus className="w-4 h-4 mr-2" />
-                Add Requirement
-              </Button>
-              {errors.requirements && (
-                <p className="text-sm text-destructive">
-                  {errors.requirements}
-                </p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Benefits */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-xl">
-                Benefits{" "}
-                <span className="text-muted-foreground font-normal">
-                  (Optional)
-                </span>
-              </CardTitle>
-              <CardDescription>
-                What will participants gain from this opportunity?
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {formData.benefits.map((benefit, index) => (
-                <div key={index} className="flex gap-2">
-                  <Input
-                    value={benefit}
-                    onChange={(e) =>
-                      handleArrayFieldChange("benefits", index, e.target.value)
-                    }
-                    placeholder={`Benefit ${index + 1}`}
-                    className="flex-1"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => removeArrayField("benefits", index)}
-                    disabled={formData.benefits.length === 1}
-                    className="px-3"
-                  >
-                    <HiX className="w-4 h-4" />
-                  </Button>
-                </div>
-              ))}
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => addArrayField("benefits")}
-                className="w-full"
-              >
-                <HiPlus className="w-4 h-4 mr-2" />
-                Add Benefit
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Submit Section */}
-          <Card>
-            <CardContent className="pt-6">
-              {errors.submit && (
-                <div className="mb-4 p-4 bg-destructive/15 border border-destructive/20 rounded-md">
-                  <p className="text-destructive">{errors.submit}</p>
-                </div>
-              )}
-
-              <Separator className="mb-6" />
-
-              <div className="flex flex-col sm:flex-row justify-end gap-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => navigate(-1)}
-                  className="sm:w-auto"
+            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+              <div style={{ flex: '1 1 300px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, fontSize: '14px' }}>Category *</label>
+                <select 
+                  className="s-select"
+                  style={{ width: '100%', border: '1px solid var(--lb-border)', background: 'var(--lb-paper)', padding: '16px', borderRadius: '16px' }}
+                  value={formData.category}
+                  onChange={(e) => handleInputChange("category", e.target.value)}
                 >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={loading} className="sm:w-auto">
-                  {loading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
-                      Submitting...
-                    </>
-                  ) : (
-                    "Submit for Review"
-                  )}
-                </Button>
+                  {categories.map(c => <option key={c.value} value={c.value}>{c.icon} {c.label}</option>)}
+                </select>
               </div>
-            </CardContent>
-          </Card>
+
+              <div style={{ flex: '1 1 300px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, fontSize: '14px' }}>Organization *</label>
+                <input 
+                  className="s-input" 
+                  style={{ width: '100%', border: errors.organization ? '1px solid #ff3366' : '1px solid var(--lb-border)', background: 'var(--lb-paper)', padding: '16px', borderRadius: '16px' }}
+                  value={formData.organization}
+                  onChange={(e) => handleInputChange("organization", e.target.value)}
+                  placeholder="e.g., Google, Mozilla"
+                />
+                {errors.organization && <div style={{ color: '#ff3366', fontSize: '12px', marginTop: '6px' }}>{errors.organization}</div>}
+              </div>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, fontSize: '14px' }}>Description *</label>
+              <textarea 
+                style={{ width: '100%', border: errors.description ? '1px solid #ff3366' : '1px solid var(--lb-border)', background: 'var(--lb-paper)', padding: '16px', borderRadius: '16px', minHeight: '160px', fontFamily: 'inherit' }}
+                value={formData.description}
+                onChange={(e) => handleInputChange("description", e.target.value)}
+                placeholder="Provide a detailed description of the opportunity..."
+              />
+              {errors.description && <div style={{ color: '#ff3366', fontSize: '12px', marginTop: '6px' }}>{errors.description}</div>}
+            </div>
+          </div>
+
+          <h2 style={{ fontFamily: 'Syne, sans-serif', fontSize: '24px', fontWeight: 700, marginBottom: '24px', borderBottom: '1px solid var(--lb-border)', paddingBottom: '16px' }}>Logistics</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', marginBottom: '48px' }}>
+            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+              <div style={{ flex: '1 1 300px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, fontSize: '14px' }}>Location</label>
+                <input 
+                  className="s-input" 
+                  style={{ width: '100%', border: '1px solid var(--lb-border)', background: 'var(--lb-paper)', padding: '16px', borderRadius: '16px' }}
+                  value={formData.location}
+                  onChange={(e) => handleInputChange("location", e.target.value)}
+                  placeholder="e.g., Remote, Lagos, London"
+                />
+              </div>
+
+              <div style={{ flex: '1 1 300px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, fontSize: '14px' }}>Deadline</label>
+                <input 
+                  type="date"
+                  style={{ width: '100%', border: errors.deadline ? '1px solid #ff3366' : '1px solid var(--lb-border)', background: 'var(--lb-paper)', padding: '16px', borderRadius: '16px', outline: 'none', fontFamily: 'inherit' }}
+                  value={formData.deadline}
+                  onChange={(e) => handleInputChange("deadline", e.target.value)}
+                />
+                {errors.deadline && <div style={{ color: '#ff3366', fontSize: '12px', marginTop: '6px' }}>{errors.deadline}</div>}
+              </div>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, fontSize: '14px' }}>Application URL</label>
+              <input 
+                type="url"
+                className="s-input" 
+                style={{ width: '100%', border: errors.application_url ? '1px solid #ff3366' : '1px solid var(--lb-border)', background: 'var(--lb-paper)', padding: '16px', borderRadius: '16px' }}
+                value={formData.application_url}
+                onChange={(e) => handleInputChange("application_url", e.target.value)}
+                placeholder="https://company.com/apply"
+              />
+              {errors.application_url && <div style={{ color: '#ff3366', fontSize: '12px', marginTop: '6px' }}>{errors.application_url}</div>}
+            </div>
+          </div>
+
+          <h2 style={{ fontFamily: 'Syne, sans-serif', fontSize: '24px', fontWeight: 700, marginBottom: '24px', borderBottom: '1px solid var(--lb-border)', paddingBottom: '16px' }}>Lists</h2>
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, fontSize: '14px' }}>Requirements *</label>
+              {formData.requirements.map((req, index) => (
+                <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                  <input style={{ flex: 1, border: '1px solid var(--lb-border)', background: 'var(--lb-paper)', padding: '12px 16px', borderRadius: '12px' }} value={req} onChange={(e) => handleArrayFieldChange("requirements", index, e.target.value)} placeholder={`Requirement ${index + 1}`} />
+                  <button type="button" onClick={() => removeArrayField("requirements", index)} disabled={formData.requirements.length === 1} style={{ padding: '0 16px', borderRadius: '12px', border: '1px solid var(--lb-border)', background: 'var(--lb-paper)', cursor: 'pointer' }}><HiX /></button>
+                </div>
+              ))}
+              <button type="button" onClick={() => addArrayField("requirements")} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: 'none', color: 'var(--lb-blue)', fontWeight: 600, cursor: 'pointer', outline: 'none' }}><HiPlus /> Add Requirement</button>
+              {errors.requirements && <div style={{ color: '#ff3366', fontSize: '12px', marginTop: '6px' }}>{errors.requirements}</div>}
+            </div>
+
+            <div style={{ marginBottom: '48px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, fontSize: '14px' }}>Benefits (Optional)</label>
+              {formData.benefits.map((ben, index) => (
+                <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                  <input style={{ flex: 1, border: '1px solid var(--lb-border)', background: 'var(--lb-paper)', padding: '12px 16px', borderRadius: '12px' }} value={ben} onChange={(e) => handleArrayFieldChange("benefits", index, e.target.value)} placeholder={`Benefit ${index + 1}`} />
+                  <button type="button" onClick={() => removeArrayField("benefits", index)} disabled={formData.benefits.length === 1} style={{ padding: '0 16px', borderRadius: '12px', border: '1px solid var(--lb-border)', background: 'var(--lb-paper)', cursor: 'pointer' }}><HiX /></button>
+                </div>
+              ))}
+              <button type="button" onClick={() => addArrayField("benefits")} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: 'none', color: 'var(--lb-blue)', fontWeight: 600, cursor: 'pointer', outline: 'none' }}><HiPlus /> Add Benefit</button>
+            </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '16px', paddingTop: '24px', borderTop: '1px solid var(--lb-border)' }}>
+            <button type="button" className="btn btn-ghost" onClick={() => navigate(-1)}>Cancel</button>
+            <button type="submit" disabled={loading} className="btn btn-accent" style={{ border: 'none' }}>
+              {loading ? "Submitting..." : "Submit for Review →"}
+            </button>
+          </div>
+
         </form>
       </div>
+
+      <Footer />
     </div>
   );
 }

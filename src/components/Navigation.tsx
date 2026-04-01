@@ -1,384 +1,179 @@
-import { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
-import {
-  HiMenu,
-  HiX,
-  HiHome,
-  HiBookOpen,
-  HiUser,
-  HiCog,
-  HiLogout,
-  HiMoon,
-  HiSun,
-} from "react-icons/hi";
+import { useState } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { Button } from "./ui/button";
-import { Badge } from "./ui/badge";
+import { HiChevronDown, HiLogout, HiCog, HiShieldCheck, HiMenu, HiX } from "react-icons/hi";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "./ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "./ui/dropdown-menu";
+
 
 export default function Navigation() {
   const { user, profile, isAdmin, signOut } = useAuth();
+  const navigate = useNavigate();
   const location = useLocation();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [isNavbarVisible, setIsNavbarVisible] = useState(true);
-  const [showSignOutModal, setShowSignOutModal] = useState(false);
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    const stored = localStorage.getItem('theme');
-    if (stored === 'dark' || stored === 'light') return stored;
-    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  });
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showSignoutConfirm, setShowSignoutConfirm] = useState(false);
 
-  const navigation = [
-    { name: "Home", href: "/", icon: HiHome },
-    { name: "Opportunities", href: "/opportunities", icon: HiBookOpen },
-    ...(user ? [{ name: "Dashboard", href: "/dashboard", icon: HiUser }] : []),
-    ...(isAdmin ? [{ name: "Admin", href: "/admin", icon: HiCog }] : []),
-  ];
-
-  const isCurrentPage = (href: string) => {
-    if (href === "/") {
-      return location.pathname === "/";
-    }
-    return location.pathname.startsWith(href);
+  const handleSignout = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowDropdown(false);
+    setShowSignoutConfirm(true);
   };
 
-  const handleSignOutClick = () => {
-    setShowSignOutModal(true);
+  const confirmSignout = async () => {
+    await signOut();
+    setShowSignoutConfirm(false);
+    navigate('/');
   };
 
-  const handleConfirmSignOut = async () => {
-    try {
-      setShowSignOutModal(false);
-      await signOut();
-    } catch (error) {
-      console.error("Error signing out:", error);
-    }
-  };
-
-  // Handle scroll to show/hide navbar and detect scroll state
-  useEffect(() => {
-    // Apply theme class to root
-    const root = document.documentElement;
-    if (theme === 'dark') root.classList.add('dark');
-    else root.classList.remove('dark');
-    localStorage.setItem('theme', theme);
-  }, [theme]);
-
-  // Handle scroll to show/hide navbar and detect scroll state
-  useEffect(() => {
-    let lastScrollY = window.scrollY;
-    let ticking = false;
-
-    const handleScroll = () => {
-      if (!ticking) {
-        requestAnimationFrame(() => {
-          const currentScrollY = window.scrollY;
-
-          // Update scroll state
-          setIsScrolled(currentScrollY > 10);
-
-          // Show/hide navbar based on scroll direction
-          if (currentScrollY > lastScrollY && currentScrollY > 100) {
-            // Scrolling down and past 100px - hide navbar
-            setIsNavbarVisible(false);
-            setIsMobileMenuOpen(false); // Close mobile menu when hiding navbar
-          } else {
-            // Scrolling up or at top - show navbar
-            setIsNavbarVisible(true);
-          }
-
-          lastScrollY = currentScrollY;
-          ticking = false;
-        });
-        ticking = true;
-      }
-    };
-
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
-  const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
+  const isAuthPage = location.pathname.startsWith("/auth/");
 
   return (
-    <nav
-      className={`sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border transition-all duration-300 ease-in-out ${
-        isNavbarVisible
-          ? "translate-y-0 opacity-100"
-          : "-translate-y-full opacity-0"
-      } ${
-        isScrolled ? "shadow-lg bg-background/98" : "shadow-sm bg-background/95"
-      }`}
-    >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <div className="flex items-center">
-            <Link to="/" className="flex-shrink-0 flex items-center">
-              <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center mr-3">
-                <span className="text-primary-foreground font-bold text-lg">
-                  L
-                </span>
+    <nav>
+      <Link to="/" className="logo">Leap<em>Bod</em></Link>
+      
+      {!isAuthPage && (
+        <ul className={`nav-links ${mobileMenuOpen ? 'mobile-show' : ''}`}>
+          <li><Link to="/" className={location.pathname === "/" ? "active" : ""} onClick={() => setMobileMenuOpen(false)}>Home</Link></li>
+          <li><Link to="/opportunities" className={location.pathname.startsWith("/opportunities") ? "active" : ""} onClick={() => setMobileMenuOpen(false)}>Discover</Link></li>
+          <li><Link to="/community" className={location.pathname.startsWith("/community") ? "active" : ""} onClick={() => setMobileMenuOpen(false)}>Community</Link></li>
+          {user && <li><Link to="/dashboard" className={location.pathname.startsWith("/dashboard") ? "active" : ""} onClick={() => setMobileMenuOpen(false)}>Dashboard</Link></li>}
+        </ul>
+      )}
+
+      <div className="nav-right">
+        {user && !isAuthPage ? (
+          <div style={{ position: 'relative' }}>
+            <button 
+              onClick={() => setShowDropdown(!showDropdown)}
+              className="btn btn-ghost"
+              style={{ padding: '4px 12px', borderRadius: '100px', display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid var(--lb-border)' }}
+            >
+              <div style={{ 
+                width: '32px', height: '32px', borderRadius: '50%', 
+                background: 'var(--lb-accent)', color: 'white', 
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '14px', fontWeight: 700
+              }}>
+                {(profile?.full_name || user.email || "U").charAt(0).toUpperCase()}
               </div>
-              <span className="text-xl font-bold text-foreground">LeapBod</span>
-            </Link>
-          </div>
+              <span className="hide-mobile" style={{ fontSize: '14px', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {profile?.full_name?.split(' ')[0] || user.email?.split('@')[0]}
+              </span>
+              <HiChevronDown style={{ transform: showDropdown ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+            </button>
 
-          {/* Centered Desktop navigation */}
-          <div className="hidden md:flex md:items-center md:space-x-1">
-            {navigation.map((item) => {
-              const Icon = item.icon;
-              const isCurrent = isCurrentPage(item.href);
-              return (
-                <Button
-                  key={item.name}
-                  asChild
-                  variant={isCurrent ? "default" : "ghost"}
-                  className="relative"
-                >
-                  <Link to={item.href}>
-                    <Icon className="w-4 h-4 mr-2" />
-                    {item.name}
-                    {item.name === "Admin" && isAdmin && (
-                      <Badge variant="secondary" className="ml-2 text-xs">
-                        Admin
-                      </Badge>
-                    )}
+            {showDropdown && (
+              <div 
+                style={{ 
+                  position: 'absolute', top: 'calc(100% + 8px)', right: 0, 
+                  width: '240px', background: 'var(--lb-card)', 
+                  borderRadius: '16px', boxShadow: 'var(--lb-shadow-lg)', 
+                  border: '1px solid var(--lb-border)', padding: '8px',
+                  zIndex: 1000,
+                  animation: 'fadeUp 0.2s ease'
+                }}
+                onMouseLeave={() => setShowDropdown(false)}
+              >
+                <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--lb-border)', marginBottom: '8px' }}>
+                  <div style={{ fontWeight: 700, fontSize: '14px' }}>{profile?.full_name || "User"}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--lb-muted)', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.email}</div>
+                </div>
+
+                <Link to="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 16px', borderRadius: '8px', textDecoration: 'none', color: 'var(--lb-ink)', fontSize: '14px' }}>
+                  <HiCog /> My Dashboard
+                </Link>
+
+                {isAdmin && (
+                  <Link to="/admin" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 16px', borderRadius: '8px', textDecoration: 'none', color: 'var(--lb-accent)', fontSize: '14px', fontWeight: 600 }}>
+                    <HiShieldCheck /> Admin Panel
                   </Link>
-                </Button>
-              );
-            })}
-          </div>
+                )}
 
-          {/* Desktop user menu */}
-          <div className="hidden md:flex md:items-center md:space-x-4">
-            {user ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="relative h-8 w-8 rounded-full p-0"
-                  >
-                    <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center">
-                      <span className="text-primary-foreground font-medium text-sm">
-                        {profile?.full_name?.charAt(0) ||
-                          user.email?.charAt(0) ||
-                          "U"}
-                      </span>
-                    </div>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56" align="end" forceMount>
-                  <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">
-                        {profile?.full_name || "User"}
-                      </p>
-                      <p className="text-xs leading-none text-muted-foreground">
-                        {user.email}
-                      </p>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link to="/dashboard" className="cursor-pointer">
-                      <HiUser className="mr-2 h-4 w-4" />
-                      Dashboard
-                    </Link>
-                  </DropdownMenuItem>
-                  {isAdmin && (
-                    <DropdownMenuItem asChild>
-                      <Link to="/admin" className="cursor-pointer">
-                        <HiCog className="mr-2 h-4 w-4" />
-                        Admin Panel
-                        <Badge variant="secondary" className="ml-auto">
-                          Admin
-                        </Badge>
-                      </Link>
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={handleSignOutClick}
-                    className="cursor-pointer"
-                  >
-                    <HiLogout className="mr-2 h-4 w-4" />
-                    Sign out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <div className="flex items-center space-x-2">
-                <Button asChild variant="ghost">
-                  <Link to="/auth/login">Sign In</Link>
-                </Button>
-                <Button asChild>
-                  <Link to="/auth/login">Get Started</Link>
-                </Button>
+                <button 
+                  onClick={handleSignout}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 16px', borderRadius: '8px', border: 'none', background: 'none', cursor: 'pointer', color: '#ff3366', fontSize: '14px', textAlign: 'left' }}
+                >
+                  <HiLogout /> Sign Out
+                </button>
               </div>
             )}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={toggleTheme}
-              aria-label="Toggle theme"
-            >
-              {theme === 'dark' ? <HiSun className="h-4 w-4" /> : <HiMoon className="h-4 w-4" />}
-            </Button>
           </div>
+        ) : (
+          !isAuthPage && (
+            <>
+              <button onClick={() => navigate('/auth/login', { state: { from: location.pathname } })} className="btn btn-ghost hide-mobile">Log in</button>
+              <button onClick={() => navigate('/auth/login', { state: { from: location.pathname } })} className="btn btn-dark">Get started →</button>
+            </>
+          )
+        )}
 
-          {/* Mobile menu button */}
-          <div className="md:hidden flex items-center">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleTheme}
-              className="p-2 mr-1"
-              aria-label="Toggle theme"
-            >
-              {theme === 'dark' ? <HiSun className="h-5 w-5" /> : <HiMoon className="h-5 w-5" />}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="p-2"
-            >
-              {isMobileMenuOpen ? (
-                <HiX className="h-6 w-6" />
-              ) : (
-                <HiMenu className="h-6 w-6" />
-              )}
-            </Button>
-          </div>
-        </div>
-
-        {/* Mobile menu */}
-        {isMobileMenuOpen && (
-          <div className="md:hidden border-t border-border">
-            <div className="px-2 pt-2 pb-3 space-y-1">
-              {navigation.map((item) => {
-                const Icon = item.icon;
-                const isCurrent = isCurrentPage(item.href);
-                return (
-                  <Button
-                    key={item.name}
-                    asChild
-                    variant={isCurrent ? "default" : "ghost"}
-                    className="w-full justify-start"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    <Link to={item.href}>
-                      <Icon className="w-4 h-4 mr-3" />
-                      {item.name}
-                      {item.name === "Admin" && isAdmin && (
-                        <Badge variant="secondary" className="ml-auto">
-                          Admin
-                        </Badge>
-                      )}
-                    </Link>
-                  </Button>
-                );
-              })}
-            </div>
-
-            {/* Mobile user section */}
-            <div className="pt-4 pb-3 border-t border-border">
-              {user ? (
-                <div className="px-2 space-y-2">
-                  <div className="flex items-center px-3 py-2">
-                    <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center mr-3">
-                      <span className="text-primary-foreground font-medium">
-                        {profile?.full_name?.charAt(0) ||
-                          user.email?.charAt(0) ||
-                          "U"}
-                      </span>
-                    </div>
-                    <div className="flex-1">
-                      <div className="text-sm font-medium text-foreground">
-                        {profile?.full_name || "User"}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {user.email}
-                      </div>
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start"
-                    onClick={() => {
-                      handleSignOutClick();
-                      setIsMobileMenuOpen(false);
-                    }}
-                  >
-                    <HiLogout className="w-4 h-4 mr-3" />
-                    Sign out
-                  </Button>
-                </div>
-              ) : (
-                <div className="px-2 space-y-2">
-                  <Button
-                    asChild
-                    variant="ghost"
-                    className="w-full justify-start"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    <Link to="/auth/login">Sign In</Link>
-                  </Button>
-                  <Button
-                    asChild
-                    className="w-full justify-start"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    <Link to="/auth/login">Get Started</Link>
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
+        {!isAuthPage && (
+          <button 
+            className="mobile-menu-btn" 
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          >
+            {mobileMenuOpen ? <HiX /> : <HiMenu />}
+          </button>
         )}
       </div>
 
-      {/* Sign Out Confirmation Modal */}
-      <Dialog open={showSignOutModal} onOpenChange={setShowSignOutModal}>
-        <DialogContent className="sm:max-w-md">
+      {/* Sign Out Confirmation Dialog */}
+      <Dialog open={showSignoutConfirm} onOpenChange={setShowSignoutConfirm}>
+        <DialogContent className="w-[92vw] max-w-md p-6" style={{ borderRadius: '24px', background: 'var(--lb-paper)', border: '1px solid var(--lb-border)' }}>
           <DialogHeader>
-            <DialogTitle>Sign Out</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to sign out? You'll need to sign in again to access your account.
+            <DialogTitle style={{ fontFamily: 'Syne, sans-serif', fontSize: '20px', fontWeight: 800 }}>Confirm Sign Out</DialogTitle>
+            <DialogDescription style={{ color: 'var(--lb-muted)', fontSize: '15px', marginTop: '8px' }}>
+              Are you sure you want to sign out of your account? You'll need to log in again to access your dashboard and saved items.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-3">
-            <Button
-              variant="outline"
-              onClick={() => setShowSignOutModal(false)}
+          <DialogFooter className="mt-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+            <button 
+              className="btn btn-ghost w-full sm:w-auto" 
+              onClick={() => setShowSignoutConfirm(false)}
             >
               Cancel
-            </Button>
-            <Button
-              variant="default"
-              onClick={handleConfirmSignOut}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            </button>
+            <button 
+              className="btn btn-dark w-full sm:w-auto" 
+              onClick={confirmSignout}
+              style={{ 
+                background: 'var(--lb-ink)', 
+                color: 'var(--lb-paper)', 
+                border: '1px solid var(--lb-ink)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                padding: '12px 15px',
+                borderRadius: '12px',
+                fontWeight: 600,
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.background = '#ff3366';
+                e.currentTarget.style.borderColor = '#ff3366';
+                e.currentTarget.style.color = 'white';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 6px 12px rgba(255, 51, 102, 0.2)';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.background = 'var(--lb-ink)';
+                e.currentTarget.style.borderColor = 'var(--lb-ink)';
+                e.currentTarget.style.color = 'var(--lb-paper)';
+                e.currentTarget.style.transform = 'none';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
             >
-              Sign Out
-            </Button>
+              <HiLogout style={{ fontSize: '18px' }} /> Confirm Sign Out
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

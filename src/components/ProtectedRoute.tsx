@@ -1,7 +1,5 @@
-import { useNavigate } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog'
-import { FcGoogle } from 'react-icons/fc'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
@@ -9,8 +7,8 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
-  const { user, profile, loading, signInWithGoogle } = useAuth()
-  const navigate = useNavigate()
+  const { user, profile, loading } = useAuth()
+  const location = useLocation()
 
   // Show loading spinner only while checking authentication
   if (loading) {
@@ -24,68 +22,9 @@ export default function ProtectedRoute({ children, requireAdmin = false }: Prote
     )
   }
 
-  // Prompt sign-in via modal if not authenticated (keep user on page)
+  // Redirect to login page if not authenticated
   if (!user) {
-    return (
-      <>
-        <div className="min-h-screen bg-background/80" />
-        <Dialog open onOpenChange={(open) => { if (!open) navigate('/') }}>
-          <DialogContent className="sm:max-w-md p-0 overflow-hidden">
-            <DialogHeader className="sr-only">
-              <DialogTitle>Sign in required</DialogTitle>
-              <DialogDescription>Please sign in to access this page</DialogDescription>
-            </DialogHeader>
-            <div className="p-6 bg-card">
-              {/* Brand */}
-              <div className="text-center">
-                <h1 className="text-3xl font-bold text-foreground">
-                  Leap<span className="text-blue-600">bod</span>
-                </h1>
-                <p className="text-muted-foreground mt-1">Discover amazing opportunities</p>
-              </div>
-
-              {/* Headline */}
-              <div className="mt-6 text-center">
-                <h2 className="text-2xl font-semibold text-foreground">Welcome back</h2>
-                <p className="mt-1 text-sm text-muted-foreground">Sign in to access your dashboard</p>
-              </div>
-
-              {/* Google button */}
-              <div className="mt-6">
-                <button
-                  onClick={() => { void signInWithGoogle() }}
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-md px-4 py-2.5 border border-border bg-background hover:bg-muted transition text-foreground"
-                >
-                  <FcGoogle className="h-5 w-5" />
-                  Continue with Google
-                </button>
-              </div>
-
-              {/* Terms */}
-              <p className="mt-3 text-center text-xs text-muted-foreground">
-                By signing in, you agree to our <a className="text-blue-600 hover:underline" href="#">Terms of Service</a> and <a className="text-blue-600 hover:underline" href="#">Privacy Policy</a>
-              </p>
-
-              {/* Info panel */}
-              <div className="mt-6 rounded-lg border border-border bg-background/60 p-4">
-                <h3 className="text-sm font-medium text-foreground mb-1">🎓 Student Platform</h3>
-                <p className="text-sm text-muted-foreground">
-                  Discover internships, scholarships, competitions, and research opportunities tailored for students.
-                </p>
-              </div>
-
-              {/* Back */}
-              <button
-                onClick={() => navigate('/')}
-                className="mt-4 w-full inline-flex items-center justify-center rounded-md px-4 py-2 border border-border text-foreground hover:bg-muted transition"
-              >
-                Go back home
-              </button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </>
-    )
+    return <Navigate to="/auth/login" state={{ from: location.pathname }} replace />
   }
 
   // Admin routes: wait for profile to resolve, then check role

@@ -6,7 +6,14 @@ import AuthCallback from "./pages/AuthCallback";
 import Dashboard from "./pages/Dashboard";
 import AdminPanel from "./pages/AdminPanel";
 import OpportunitiesPage from "./pages/OpportunitiesPage";
+import CommunityPage from "./pages/CommunityPage";
 import SubmitOpportunity from "./pages/SubmitOpportunity";
+import AboutPage from "./pages/AboutPage";
+import ContactPage from "./pages/ContactPage";
+import TermsPage from "./pages/TermsPage";
+import PrivacyPage from "./pages/PrivacyPage";
+import LeaderboardPage from "./pages/LeaderboardPage";
+import BlogPage from "./pages/BlogPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { NetworkStatus } from "./components/NetworkStatus";
@@ -31,6 +38,12 @@ function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/auth/login" element={<Login />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="/contact" element={<ContactPage />} />
+        <Route path="/terms" element={<TermsPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/leaderboard" element={<LeaderboardPage />} />
+        <Route path="/blog" element={<BlogPage />} />
 
         {/* Protected routes */}
         <Route
@@ -39,6 +52,16 @@ function App() {
             <ErrorBoundary>
               <ProtectedRoute>
                 <OpportunitiesPage />
+              </ProtectedRoute>
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path="/community"
+          element={
+            <ErrorBoundary>
+              <ProtectedRoute>
+                <CommunityPage />
               </ProtectedRoute>
             </ErrorBoundary>
           }

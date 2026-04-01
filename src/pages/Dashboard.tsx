@@ -1,28 +1,12 @@
 import { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import {
-  HiCheckCircle,
-  HiClock,
-  HiXCircle,
-  HiPlus,
-  HiBookmark,
-  HiEye,
-} from "react-icons/hi";
 import Navigation from "../components/Navigation";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
 import type { Opportunity } from "../types/database.types";
-import { Button } from "../components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "../components/ui/card";
-import { Badge } from "../components/ui/badge";
-import { Separator } from "../components/ui/separator";
 import { getCache, setCache, dedupeRequest } from "../lib/utils";
+import Footer from "../components/Footer";
+import "./Landing.css";
 
 interface BookmarkWithOpportunity {
   opportunity_id: string;
@@ -32,20 +16,16 @@ interface BookmarkWithOpportunity {
 export default function Dashboard() {
   const { user, loading: authLoading } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [submittedOpportunities, setSubmittedOpportunities] = useState<
-    Opportunity[]
-  >([]);
-  const [bookmarkedOpportunities, setBookmarkedOpportunities] = useState<
-    Opportunity[]
-  >([]);
+  const [submittedOpportunities, setSubmittedOpportunities] = useState<Opportunity[]>([]);
+  const [bookmarkedOpportunities, setBookmarkedOpportunities] = useState<Opportunity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const showSuccess = searchParams.get("submitted") === "true";
 
+  const [activeTab, setActiveTab] = useState("All");
+
   useEffect(() => {
-    // Show cached data immediately if available, don't wait for auth
     if (user) {
-      // Instant hydration from cache
       const subKey = `dash:${user.id}:submitted:v1`;
       const bmKey = `dash:${user.id}:bookmarks:v1`;
       const cachedSubmitted = getCache<Opportunity[]>(subKey);
@@ -55,23 +35,18 @@ export default function Dashboard() {
         if (cachedBookmarks) setBookmarkedOpportunities(cachedBookmarks);
         setLoading(false);
       }
-      // Fetch fresh data in background (with deduplication)
       fetchUserData();
     } else if (!authLoading) {
-      // Only clear loading if auth has finished and there's no user
       setLoading(false);
     }
 
     if (showSuccess) {
-      const timer = setTimeout(() => {
-        setSearchParams({});
-      }, 5000);
+      const timer = setTimeout(() => setSearchParams({}), 5000);
       return () => clearTimeout(timer);
     }
   }, [user, authLoading, showSuccess, setSearchParams]);
 
   const fetchUserData = async () => {
-    // Only show loading if we don't have cached data
     const subKey = `dash:${user?.id}:submitted:v1`;
     const bmKey = `dash:${user?.id}:bookmarks:v1`;
     const hasCache = getCache<Opportunity[]>(subKey) || getCache<Opportunity[]>(bmKey);
@@ -85,484 +60,214 @@ export default function Dashboard() {
         const [submittedRes, bookmarksRes] = await Promise.all([
           supabase
             .from("opportunities")
-            .select("id,title,description,category,organization,status,created_at")
+            .select("id,title,description,category,organization,status,created_at,views_count,applications_count,deadline")
             .eq("submitted_by", user?.id as string)
             .order("created_at", { ascending: false }),
           supabase
             .from("bookmarks")
-            .select(
-              `opportunity_id, opportunities (id,title,description,category,organization,deadline)`
-            )
+            .select(`opportunity_id, opportunities (id,title,description,category,organization,deadline)`)
             .eq("user_id", user?.id as string),
         ]);
 
         if (submittedRes.error) throw submittedRes.error;
         if (bookmarksRes.error) throw bookmarksRes.error;
 
-        const bookmarkedOppsList =
-          (bookmarksRes.data as BookmarkWithOpportunity[])
-            ?.map((b) => b.opportunities)
-            .filter(Boolean) || [];
-
-        return {
-          submitted: submittedRes.data || [],
-          bookmarked: bookmarkedOppsList,
-        };
+        const bookmarkedOppsList = (bookmarksRes.data as BookmarkWithOpportunity[])?.map((b) => b.opportunities).filter(Boolean) || [];
+        return { submitted: submittedRes.data || [], bookmarked: bookmarkedOppsList };
       });
 
       setSubmittedOpportunities(data.submitted as Opportunity[]);
-      if (user?.id) setCache(`dash:${user.id}:submitted:v1`, data.submitted, 3600_000); // 1 hour cache
+      if (user?.id) setCache(`dash:${user.id}:submitted:v1`, data.submitted, 3600_000);
       setBookmarkedOpportunities(data.bookmarked as Opportunity[]);
-      if (user?.id) setCache(`dash:${user.id}:bookmarks:v1`, data.bookmarked, 3600_000); // 1 hour cache
+      if (user?.id) setCache(`dash:${user.id}:bookmarks:v1`, data.bookmarked, 3600_000);
     } catch (error) {
-      setError(
-        "Failed to load dashboard data. Please try refreshing the page."
-      );
+      setError("Failed to load dashboard data. Please try refreshing the page.");
     } finally {
       setLoading(false);
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "approved":
-        return <HiCheckCircle className="w-5 h-5 text-green-500" />;
-      case "pending":
-        return <HiClock className="w-5 h-5 text-yellow-500" />;
-      case "rejected":
-        return <HiXCircle className="w-5 h-5 text-red-500" />;
-      default:
-        return <HiClock className="w-5 h-5 text-muted-foreground" />;
+  const getCategoryIcon = (category: string) => {
+    switch (category?.toLowerCase()) {
+      case "job": return "🏢";
+      case "scholarship":
+      case "grant": return "💰";
+      case "event": return "🎪";
+      case "internship": return "🚀";
+      case "fellowship": return "🔬";
+      case "competition": return "💡";
+      case "research": return "🧪";
+      default: return "🌟";
     }
   };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "approved":
-        return "Approved";
-      case "pending":
-        return "Under Review";
-      case "rejected":
-        return "Rejected";
-      default:
-        return "Unknown";
-    }
-  };
-
-  const getStatusVariant = (
-    status: string
-  ): "default" | "secondary" | "destructive" | "outline" => {
-    switch (status) {
-      case "approved":
-        return "default";
-      case "pending":
-        return "secondary";
-      case "rejected":
-        return "destructive";
-      default:
-        return "outline";
-    }
-  };
-
-  // Show loading while auth is still loading
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="landing-page" style={{ minHeight: '100vh', background: 'var(--lb-paper)' }}>
         <Navigation />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex justify-center items-center py-24">
-            <div className="space-y-4 text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-              <p className="text-muted-foreground">Loading your session...</p>
-            </div>
-          </div>
-        </div>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '100px 0' }}>Loading session...</div>
       </div>
     );
   }
 
-  // If user is not logged in, show login prompt
   if (!user) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="landing-page" style={{ minHeight: '100vh', background: 'var(--lb-paper)' }}>
         <Navigation />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <Card>
-            <CardContent className="py-24">
-              <div className="text-center space-y-6">
-                <h2 className="text-3xl font-bold text-foreground">
-                  Please Sign In
-                </h2>
-                <p className="text-muted-foreground text-lg max-w-md mx-auto">
-                  You need to be signed in to view your dashboard.
-                </p>
-                <Button asChild size="lg">
-                  <Link to="/auth/login">Sign In</Link>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="cta-section" style={{ margin: '60px auto', borderRadius: '24px', maxWidth: '800px' }}>
+          <h2 className="cta-h2">Access Denied</h2>
+          <p className="cta-sub">Please log in to view your dashboard.</p>
+          <div className="cta-btns">
+            <Link to="/auth/login" className="btn btn-paper btn-lg">Log in</Link>
+          </div>
         </div>
       </div>
     );
   }
 
+  const viewsTotal = submittedOpportunities.reduce((acc, curr) => acc + (curr.views_count || 0), 0);
+  const appsTotal = submittedOpportunities.reduce((acc, curr) => acc + (curr.applications_count || 0), 0);
+  const pendingCount = submittedOpportunities.filter((o) => o.status === "pending").length;
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="landing-page" style={{ minHeight: '100vh', background: 'var(--lb-paper)' }}>
       <Navigation />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Success Message */}
+      <div className="dashboard-main-content">
+        
         {showSuccess && (
-          <Card className="mb-8 border-green-200 bg-green-50/50">
-            <CardContent className="p-6">
-              <div className="flex">
-                <HiCheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-green-900">
-                    🎉 Opportunity Submitted Successfully!
-                  </h3>
-                  <p className="mt-1 text-sm text-green-800">
-                    Your opportunity has been submitted for review. You'll be
-                    notified once it's approved and live on the platform.
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <div style={{ background: 'var(--lb-green)', color: '#fff', padding: '16px', borderRadius: '12px', marginBottom: '24px' }}>
+            <strong>🎉 Success!</strong> Your opportunity has been submitted for review.
+          </div>
         )}
 
-        {/* Error Message */}
         {error && (
-          <Card className="mb-8 border-red-200 bg-red-50/50">
-            <CardContent className="p-6">
-              <div className="flex">
-                <HiXCircle className="h-5 w-5 text-red-600 mt-0.5" />
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-red-900">
-                    Error Loading Dashboard
-                  </h3>
-                  <p className="mt-1 text-sm text-red-800">{error}</p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-2"
-                    onClick={() => fetchUserData()}
-                  >
-                    Try Again
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <div style={{ background: '#ff3366', color: '#fff', padding: '16px', borderRadius: '12px', marginBottom: '24px' }}>
+            <strong>Error:</strong> {error} <button onClick={fetchUserData} style={{textDecoration: 'underline', marginLeft: '12px'}}>Try again</button>
+          </div>
         )}
-
-        {/* Header */}
-        <div className="text-center space-y-4 mb-12">
-          <h1 className="text-4xl font-bold tracking-tight text-foreground">
-            Welcome to Your Dashboard
-          </h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Track your submissions, manage your bookmarks, and discover your
-            next opportunity
-          </p>
-        </div>
 
         {loading ? (
-          <div className="flex justify-center items-center py-24">
-            <div className="space-y-4 text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-              <p className="text-muted-foreground">Loading your dashboard...</p>
-            </div>
-          </div>
+             <div style={{ display: 'flex', justifyContent: 'center', padding: '100px 0' }}>Loading dashboard...</div>
         ) : (
-          <div className="space-y-8">
-            {/* Quick Actions */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-2xl">Quick Actions</CardTitle>
-                <CardDescription>
-                  Get started with these common actions
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <Button asChild size="lg" className="h-20 flex-col gap-2">
-                    <Link to="/submit">
-                      <HiPlus className="w-6 h-6" />
-                      <span>Submit New Opportunity</span>
-                    </Link>
-                  </Button>
-                  <Button
-                    asChild
-                    variant="outline"
-                    size="lg"
-                    className="h-20 flex-col gap-2"
-                  >
-                    <Link to="/opportunities">
-                      <HiEye className="w-6 h-6" />
-                      <span>Browse All Opportunities</span>
-                    </Link>
-                  </Button>
-                  <Button
-                    asChild
-                    variant="outline"
-                    size="lg"
-                    className="h-20 flex-col gap-2"
-                  >
-                    <Link to="/opportunities">
-                      <HiBookmark className="w-6 h-6" />
-                      <span>Find New Bookmarks</span>
-                    </Link>
-                  </Button>
+          <>
+            {/* EMPLOYER SECTION */}
+            <section className="employer-section" style={{ padding: 0 }} id="employers">
+              <div className="sec-header reveal visible">
+                <div>
+                  <div className="sec-eye">Dashboard</div>
+                  <h2 className="sec-h2">Your Submissions<br />& Analytics</h2>
                 </div>
-              </CardContent>
-            </Card>
+                <Link to="/submit" className="btn btn-accent">Post new listing →</Link>
+              </div>
 
-            {/* Stats Overview */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardDescription>Total Submissions</CardDescription>
-                  <CardTitle className="text-3xl font-bold text-blue-600">
-                    {submittedOpportunities.length}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-sm text-muted-foreground">
-                    {
-                      submittedOpportunities.filter(
-                        (o) => o.status === "pending"
-                      ).length
-                    }{" "}
-                    pending review
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardDescription>Approved Opportunities</CardDescription>
-                  <CardTitle className="text-3xl font-bold text-green-600">
-                    {
-                      submittedOpportunities.filter(
-                        (o) => o.status === "approved"
-                      ).length
-                    }
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-sm text-muted-foreground">
-                    Live on the platform
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardDescription>Saved Bookmarks</CardDescription>
-                  <CardTitle className="text-3xl font-bold text-purple-600">
-                    {bookmarkedOpportunities.length}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-sm text-muted-foreground">
-                    Opportunities you've saved
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* My Submissions */}
-            <Card>
-              <CardHeader>
-                <div className="flex justify-between items-center">
-                  <div>
-                    <CardTitle className="text-2xl">My Submissions</CardTitle>
-                    <CardDescription>
-                      Opportunities you've submitted (
-                      {submittedOpportunities.length})
-                    </CardDescription>
-                  </div>
-                  {submittedOpportunities.length > 0 && (
-                    <Button asChild variant="outline">
-                      <Link to="/submit">
-                        <HiPlus className="w-4 h-4 mr-2" />
-                        Submit Another
-                      </Link>
-                    </Button>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent>
-                {submittedOpportunities.length === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="w-20 h-20 mx-auto bg-muted rounded-full flex items-center justify-center mb-6">
-                      <HiPlus className="w-10 h-10 text-muted-foreground" />
+              <div className="employer-grid">
+                <div className="emp-dash reveal visible">
+                  <div className="ed-title">📊 Analytics Dashboard</div>
+                  <div className="analytics-row">
+                    <div className="ana-box">
+                      <div className="ana-val">{viewsTotal.toLocaleString()}</div>
+                      <div className="ana-label">Total views</div>
                     </div>
-                    <h3 className="text-xl font-semibold text-foreground mb-2">
-                      No submissions yet
-                    </h3>
-                    <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                      Share opportunities with the community by submitting them
-                      for review. Help fellow students discover amazing
-                      opportunities!
-                    </p>
-                    <Button asChild size="lg">
-                      <Link to="/submit">
-                        <HiPlus className="w-5 h-5 mr-2" />
-                        Submit Your First Opportunity
-                      </Link>
-                    </Button>
+                    <div className="ana-box">
+                      <div className="ana-val">{appsTotal.toLocaleString()}</div>
+                      <div className="ana-label">Applications</div>
+                    </div>
+                    <div className="ana-box">
+                      <div className="ana-val">{submittedOpportunities.length}</div>
+                      <div className="ana-label">Total Listings</div>
+                    </div>
+                    <div className="ana-box">
+                      <div className="ana-val">{pendingCount}</div>
+                      <div className="ana-label">Pending Review</div>
+                    </div>
                   </div>
-                ) : (
-                  <div className="space-y-4">
-                    {submittedOpportunities.map((opportunity, index) => (
-                      <div key={opportunity.id}>
-                        {index > 0 && <Separator />}
-                        <div className="py-4">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1 space-y-3">
-                              <div className="flex items-center gap-3">
-                                <h3 className="text-lg font-semibold text-foreground">
-                                  {opportunity.title}
-                                </h3>
-                                <Badge
-                                  variant={getStatusVariant(
-                                    opportunity.status || "pending"
-                                  )}
-                                >
-                                  {getStatusText(
-                                    opportunity.status || "pending"
-                                  )}
-                                </Badge>
-                              </div>
-                              <p className="text-muted-foreground line-clamp-2">
-                                {opportunity.description}
-                              </p>
-                              <div className="flex items-center text-sm text-muted-foreground gap-4">
-                                <Badge variant="outline" className="capitalize">
-                                  {opportunity.category}
-                                </Badge>
-                                <span>{opportunity.organization}</span>
-                                <span>
-                                  Submitted{" "}
-                                  {new Date(
-                                    opportunity.created_at || ""
-                                  ).toLocaleDateString()}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="ml-6 flex items-center">
-                              {getStatusIcon(opportunity.status || "pending")}
-                            </div>
+                </div>
+
+                <div className="emp-listings reveal visible">
+                  {submittedOpportunities.length === 0 ? (
+                      <div style={{ padding: '40px', textAlign: 'center', opacity: 0.6 }}>
+                        <div style={{ fontSize: '32px', marginBottom: '12px' }}>📝</div>
+                        <div>No submissions yet. Share opportunities with the community!</div>
+                      </div>
+                  ) : (
+                    submittedOpportunities.map(op => (
+                      <div className="listing-card" key={op.id}>
+                        <div className="lc-top">
+                          <div>
+                            <div className="lc-title">{op.title}</div>
+                            <div className="lc-meta">{op.category} · {op.organization || 'Independent'} · {new Date(op.created_at || '').toLocaleDateString()}</div>
                           </div>
+                          <span className={`lc-status ${op.status === 'approved' ? 'lc-active' : op.status === 'rejected' ? 'lc-paused' : ''}`} style={op.status === 'pending' ? { background: 'rgba(232, 93, 38, 0.1)', color: 'var(--lb-accent)' } : {}}>
+                            {op.status === 'approved' ? 'Active' : op.status === 'pending' ? 'Pending' : 'Rejected'}
+                          </span>
+                        </div>
+                        <div className="lc-stats">
+                          <div className="lc-stat">👁 <span>{op.views_count || 0}</span> views</div>
+                          <div className="lc-stat">📨 <span>{op.applications_count || 0}</span> applied</div>
                         </div>
                       </div>
+                    ))
+                  )}
+                  {submittedOpportunities.length > 0 && <button className="post-btn" onClick={() => window.location.href='/submit'}>＋ Post a new listing</button>}
+                </div>
+              </div>
+            </section>
+
+            <div style={{ height: '60px' }}></div>
+
+            {/* TRACKER SECTION (Bookmarks) */}
+            <section className="profile-section" style={{ padding: 0 }} id="tracker">
+              <div className="sec-header reveal visible">
+                <div>
+                  <div className="sec-eye">Saved Items</div>
+                  <h2 className="sec-h2">Your Bookmarks<br />& Tracker</h2>
+                </div>
+                <Link to="/opportunities" className="btn btn-ghost">Browse all →</Link>
+              </div>
+
+              <div className="tracker-card reveal visible" style={{ height: 'auto', minHeight: '400px', gridColumn: '1 / -1' }}>
+                <div className="tracker-head">
+                  <div className="tracker-title">Application Tracker</div>
+                  <div className="tracker-tabs">
+                    {['All', 'Active', 'Saved'].map(tab => (
+                      <button 
+                        key={tab} 
+                        className={`tab ${activeTab === tab ? 'on' : ''}`}
+                        onClick={() => setActiveTab(tab)}
+                      >
+                        {tab}
+                      </button>
                     ))}
                   </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Bookmarked Opportunities */}
-            <Card>
-              <CardHeader>
-                <div className="flex justify-between items-center">
-                  <div>
-                    <CardTitle className="text-2xl">
-                      Bookmarked Opportunities
-                    </CardTitle>
-                    <CardDescription>
-                      Opportunities you've saved for later (
-                      {bookmarkedOpportunities.length})
-                    </CardDescription>
-                  </div>
-                  <Button asChild variant="outline">
-                    <Link to="/opportunities">
-                      <HiEye className="w-4 h-4 mr-2" />
-                      Browse More
-                    </Link>
-                  </Button>
                 </div>
-              </CardHeader>
-              <CardContent>
-                {bookmarkedOpportunities.length === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="w-20 h-20 mx-auto bg-muted rounded-full flex items-center justify-center mb-6">
-                      <HiBookmark className="w-10 h-10 text-muted-foreground" />
-                    </div>
-                    <h3 className="text-xl font-semibold text-foreground mb-2">
-                      No bookmarks yet
-                    </h3>
-                    <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                      Start bookmarking opportunities that interest you to keep
-                      track of them and apply when you're ready.
-                    </p>
-                    <Button asChild size="lg">
-                      <Link to="/opportunities">
-                        <HiEye className="w-5 h-5 mr-2" />
-                        Browse Opportunities
-                      </Link>
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {bookmarkedOpportunities
-                      .slice(0, 5)
-                      .map((opportunity, index) => (
-                        <div key={opportunity.id}>
-                          {index > 0 && <Separator />}
-                          <div className="py-4">
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1 space-y-3">
-                                <h3 className="text-lg font-semibold text-foreground">
-                                  {opportunity.title}
-                                </h3>
-                                <p className="text-muted-foreground line-clamp-2">
-                                  {opportunity.description}
-                                </p>
-                                <div className="flex items-center text-sm text-muted-foreground gap-4">
-                                  <Badge
-                                    variant="outline"
-                                    className="capitalize"
-                                  >
-                                    {opportunity.category}
-                                  </Badge>
-                                  <span>{opportunity.organization}</span>
-                                  {opportunity.deadline && (
-                                    <span>
-                                      Deadline:{" "}
-                                      {new Date(
-                                        opportunity.deadline
-                                      ).toLocaleDateString()}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="ml-6 flex items-center">
-                                <HiBookmark className="w-5 h-5 text-blue-500" />
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    {bookmarkedOpportunities.length > 5 && (
-                      <div className="text-center pt-4">
-                        <Button asChild variant="outline">
-                          <Link to="/opportunities">
-                            View all {bookmarkedOpportunities.length} bookmarks
-                          </Link>
-                        </Button>
+                <div className="app-list">
+                  {bookmarkedOpportunities.length === 0 ? (
+                      <div style={{ padding: '60px', textAlign: 'center', opacity: 0.6 }}>
+                        <div style={{ fontSize: '32px', marginBottom: '12px' }}>🔖</div>
+                        <div>No bookmarks yet. Start exploring to save items for later!</div>
                       </div>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+                  ) : bookmarkedOpportunities.map(op => (
+                    <div className="app-item" key={op.id}>
+                      <div className="app-logo">{getCategoryIcon(op.category)}</div>
+                      <div className="app-info">
+                        <div className="app-title">{op.title}</div>
+                        <div className="app-co">{op.organization || 'Organization'}</div>
+                      </div>
+                      <span className="app-status st-saved">Saved</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="tracker-foot">
+                  <div className="t-stat-box"><div className="tsb-num">{bookmarkedOpportunities.length}</div><div className="tsb-label">Total Saved</div></div>
+                </div>
+              </div>
+            </section>
+
+          </>
         )}
       </div>
+      <Footer />
     </div>
   );
 }

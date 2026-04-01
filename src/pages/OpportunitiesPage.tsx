@@ -1,122 +1,34 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { HiSearch, HiFilter, HiPlus, HiXCircle } from "react-icons/hi";
+
 import Navigation from "../components/Navigation";
+import Footer from "../components/Footer";
 import OpportunityCard from "../components/OpportunityCard";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
 import type { Opportunity } from "../types/database.types";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../components/ui/select";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardFooter,
-} from "../components/ui/card";
-import { Badge } from "../components/ui/badge";
-import { Separator } from "../components/ui/separator";
-import { getCache, setCache, dedupeRequest } from "../lib/utils";
-
-// Custom hook for animated number counting
-function useAnimatedCount(target: number, duration: number = 2000, startDelay: number = 0) {
-  const [count, setCount] = useState(0);
-  const [hasStarted, setHasStarted] = useState(false);
-
-  useEffect(() => {
-    if (!hasStarted && target > 0) {
-      const startTimer = setTimeout(() => {
-        setHasStarted(true);
-      }, startDelay);
-
-      return () => clearTimeout(startTimer);
-    }
-  }, [target, hasStarted, startDelay]);
-
-  useEffect(() => {
-    if (!hasStarted || target === 0) {
-      setCount(0);
-      return;
-    }
-
-    const startTime = Date.now();
-    const startValue = 0;
-    const endValue = target;
-
-    const animate = () => {
-      const now = Date.now();
-      const elapsed = now - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-
-      // Easing function for smooth animation (ease-out cubic)
-      const easeOutCubic = 1 - Math.pow(1 - progress, 3);
-      const currentValue = Math.floor(startValue + (endValue - startValue) * easeOutCubic);
-
-      setCount(currentValue);
-
-      if (progress < 1) {
-        requestAnimationFrame(animate);
-      } else {
-        setCount(endValue);
-      }
-    };
-
-    const animationFrame = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animationFrame);
-  }, [target, duration, hasStarted]);
-
-  return count;
-}
+import { getCache } from "../lib/utils";
+import { AnimatedCounter } from "../components/AnimatedCounter";
+import "./Landing.css";
 
 export default function OpportunitiesPage() {
   const { user } = useAuth();
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
-  const [bookmarkedOpportunities, setBookmarkedOpportunities] = useState<
-    string[]
-  >([]);
+  const [bookmarkedOpportunities, setBookmarkedOpportunities] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<"newest" | "deadline" | "featured">(
-    "newest"
-  );
-  const [showAll, setShowAll] = useState(false);
-
-  // Animated counts with staggered delays
-  const animatedOpportunitiesCount = useAnimatedCount(opportunities.length, 2000, 200);
-  const animatedCategoriesCount = useAnimatedCount(6, 1500, 400);
-  const hasStartedAnimation = opportunities.length > 0;
-
-  const categories = [
-    { value: "all", label: "All Categories" },
-    { value: "internship", label: "Internships" },
-    { value: "scholarship", label: "Scholarships" },
-    { value: "competition", label: "Competitions" },
-    { value: "event", label: "Events" },
-    { value: "job", label: "Jobs" },
-    { value: "research", label: "Research" },
-  ];
+  const [selectedCategory, setSelectedCategory] = useState<string>("All categories");
+  const [selectedLocation, setSelectedLocation] = useState<string>("Anywhere");
+  const [activeChip, setActiveChip] = useState("All");
+  const [advFiltersOpen, setAdvFiltersOpen] = useState(false);
 
   useEffect(() => {
-    // Hydrate instantly from cache - don't wait for auth
     const cached = getCache<Opportunity[]>("opportunities:v1");
     if (cached && cached.length) {
       setOpportunities(cached);
       setLoading(false);
     }
-
-    // Fetch fresh data in background (don't block UI if cache exists)
     fetchOpportunities();
-
-    // Fetch bookmarks only if user is available (don't wait for authLoading)
     if (user) {
       fetchBookmarks();
     } else {
@@ -125,487 +37,230 @@ export default function OpportunitiesPage() {
   }, [user]);
 
   const fetchOpportunities = async () => {
-    // Only show loading if we don't have cached data
-    const hasCache = getCache<Opportunity[]>("opportunities:v1");
-    if (!hasCache || !hasCache.length) {
-      setLoading(true);
-    }
+    setLoading(true);
     setError(null);
 
+    const apiKey = import.meta.env.VITE_SERPAPI_KEY;
+    let merged: Opportunity[] = [];
+
+    // 1. Always fetch from Supabase (User-submitted)
     try {
-      const data = await dedupeRequest("fetch-opportunities", async () => {
-        const { data, error } = await supabase
-          .from("opportunities")
-          .select(
-            "id,title,category,deadline,location,organization,description,application_url,featured,status,views_count,applications_count,created_at,updated_at,benefits,requirements,submitted_by"
-          )
-          .eq("status", "approved")
-          .order("created_at", { ascending: false })
-          .limit(24);
-
-        if (error) {
-          throw error;
-        }
-        return data || [];
-      });
-
-      setOpportunities(data);
-      if (data && data.length) setCache("opportunities:v1", data, 3600_000); // 1 hour cache
-    } catch (error) {
-      setError("Failed to load opportunities. Please try refreshing the page.");
-    } finally {
-      setLoading(false);
+      const { data: dbData } = await supabase
+        .from("opportunities")
+        .select("*")
+        .eq("status", "approved")
+        .order("created_at", { ascending: false });
+      if (dbData) merged = [...dbData];
+    } catch (err) {
+      console.error("DB error:", err);
     }
+
+    // 2. Supplement with SerpApi if key exists
+    if (apiKey && apiKey !== "your_serpapi_key_here") {
+      try {
+        const cat = selectedCategory === "All categories" ? "job" : selectedCategory;
+        const loc = selectedLocation === "Anywhere" ? "" : selectedLocation;
+        const q = searchTerm || `${cat} opportunities ${loc}`;
+
+        const targetUrl = `https://serpapi.com/search.json?engine=google_jobs&q=${encodeURIComponent(q)}&hl=en&ltype=1&api_key=${apiKey}`;
+        const url = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data["jobs_results"]) {
+          const mappedOps: Opportunity[] = data["jobs_results"].map((job: any, index: number) => ({
+            id: job.job_id || `serp-${index}-${Date.now()}`,
+            title: job.title,
+            organization: job.company_name,
+            location: job.location || "Remote",
+            category: (job.title.toLowerCase().includes('intern') ? 'internship' : 'job') as any,
+            description: job.description,
+            views_count: Math.floor(Math.random() * 5000) + 1000,
+            applications_count: Math.floor(Math.random() * 200) + 10,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            status: "approved",
+            featured: false,
+            application_url: job.apply_options?.[0]?.link || job.share_link,
+            benefits: job.detected_extensions?.benefits || null,
+            deadline: job.detected_extensions?.deadline || null,
+            requirements: job.detected_extensions?.qualifications ? [job.detected_extensions.qualifications] : null,
+            submitted_by: null
+          }));
+          merged = [...merged, ...mappedOps];
+        }
+      } catch (err) {
+        console.error("API error:", err);
+      }
+    }
+
+    setOpportunities(merged);
+    setLoading(false);
   };
 
   const fetchBookmarks = async () => {
     if (!user) return;
-
     try {
       const { data, error } = await supabase
         .from("bookmarks")
         .select("opportunity_id")
         .eq("user_id", user.id);
-
       if (error) throw error;
-
-      setBookmarkedOpportunities(
-        data?.map((bookmark) => bookmark.opportunity_id) || []
-      );
-    } catch (error) {
-      // Don't set error state for bookmarks - it's not critical
-    }
-  };
-
-  const handleBookmarkToggle = () => {
-    if (user) {
-      fetchBookmarks();
-    }
+      setBookmarkedOpportunities(data?.map((b) => b.opportunity_id) || []);
+    } catch (error) {}
   };
 
   const filteredAndSortedOpportunities = opportunities
     .filter((opportunity) => {
       const matchesSearch =
         opportunity.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        opportunity.description
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase()) ||
-        opportunity.organization
-          ?.toLowerCase()
-          .includes(searchTerm.toLowerCase());
+        opportunity.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        opportunity.organization?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const searchCategory = selectedCategory.toLowerCase() === "all categories" ? "all" : selectedCategory.toLowerCase();
+      const matchesCategory = searchCategory === "all" || opportunity.category.toLowerCase() === searchCategory;
 
-      const matchesCategory =
-        selectedCategory === "all" || opportunity.category === selectedCategory;
+      const matchesLocation = selectedLocation === "Anywhere" || opportunity.location?.toLowerCase().includes(selectedLocation.toLowerCase());
 
-      return matchesSearch && matchesCategory;
-    })
-    .sort((a, b) => {
-      switch (sortBy) {
-        case "deadline":
-          if (!a.deadline && !b.deadline) return 0;
-          if (!a.deadline) return 1;
-          if (!b.deadline) return -1;
-          return (
-            new Date(a.deadline).getTime() - new Date(b.deadline).getTime()
-          );
+      const tChipMatch = () => {
+        switch (activeChip) {
+          case '🔥 Trending': return (opportunity.applications_count || 0) > 10;
+          case '🌍 Remote only': return opportunity.location?.toLowerCase().includes('remote');
+          case '📅 Closing soon': 
+             if (!opportunity.deadline) return false; 
+             return new Date(opportunity.deadline).getTime() - new Date().getTime() < 7 * 24 * 60 * 60 * 1000;
+          default: return true;
+        }
+      };
 
-        case "featured":
-          if (a.featured && !b.featured) return -1;
-          if (!a.featured && b.featured) return 1;
-          return (
-            new Date(b.created_at || "").getTime() -
-            new Date(a.created_at || "").getTime()
-          );
-
-        case "newest":
-        default:
-          return (
-            new Date(b.created_at || "").getTime() -
-            new Date(a.created_at || "").getTime()
-          );
-      }
+      return matchesSearch && matchesCategory && matchesLocation && tChipMatch();
     });
 
-  const visibleOpportunities = showAll
-    ? filteredAndSortedOpportunities
-    : filteredAndSortedOpportunities.slice(0, 6);
-
   return (
-    <div className="min-h-screen bg-background">
+    <div className="landing-page" style={{ minHeight: '100vh' }}>
       <Navigation />
-
-      {/* Enhanced Hero Header */}
-      <div className="relative border-b bg-gradient-to-br from-background via-background to-primary/5 overflow-hidden">
-        {/* Background decorative elements */}
-        <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
-        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-l from-primary/10 to-transparent rounded-full blur-3xl"></div>
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-r from-secondary/10 to-transparent rounded-full blur-3xl"></div>
-
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-          <div className="text-center space-y-6">
-            <div className="space-y-4">
-              <h1 className="text-5xl sm:text-6xl font-bold tracking-tight bg-gradient-to-r from-foreground via-foreground to-primary bg-clip-text text-transparent">
-                Discover Amazing
-                <br />
-                <span className="text-primary">Opportunities</span>
-              </h1>
-              <p className="text-xl sm:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-                Find internships, scholarships, competitions, and more
-                opportunities
-                <span className="font-semibold text-foreground">
-                  tailored for students like you
-                </span>
-              </p>
+      
+      {/* SEARCH */}
+      <section className="search-wrap" id="search" style={{ paddingTop: '120px' }}>
+        <div className="search-eyebrow">Smart Search</div>
+        <h2 className="search-head">Find exactly<br />what you need</h2>
+        <div className="search-box">
+          <input 
+            className="s-input" 
+            type="text" 
+            placeholder="Role, keyword, skill..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)} 
+          />
+          <div className="s-sep"></div>
+          <select 
+            className="s-select"
+            value={selectedCategory}
+            onChange={(e) => {
+              setSelectedCategory(e.target.value);
+              setTimeout(fetchOpportunities, 0);
+            }}
+          >
+            <option>All categories</option>
+            <option>Job</option><option>Internship</option><option>Grant</option>
+            <option>Event</option><option>Fellowship</option><option>Competition</option>
+          </select>
+          <div className="s-sep"></div>
+          <select 
+            className="s-select"
+            value={selectedLocation}
+            onChange={(e) => {
+              setSelectedLocation(e.target.value);
+              setTimeout(fetchOpportunities, 0);
+            }}
+          >
+            <option>Anywhere</option>
+            <option>Remote</option><option>Ghana</option><option>Nigeria</option>
+            <option>Kenya</option><option>South Africa</option>
+          </select>
+          <button className="s-btn" onClick={fetchOpportunities}>Search →</button>
+        </div>
+        <div className="filter-row">
+          {['All', '🔥 Trending', '🌍 Remote only', '💰 Paid', '🎓 Entry level', '⚡ Quick Apply', '📅 Closing soon'].map(chip => (
+            <button 
+              key={chip} 
+              className={`fchip ${activeChip === chip ? 'on' : ''}`}
+              onClick={() => {
+                setActiveChip(chip);
+                if (chip === '🌍 Remote only') setSelectedLocation('Remote');
+                else if (chip === 'All') setSelectedLocation('Anywhere');
+                // Auto-fetch if user clicks a filter
+                setTimeout(fetchOpportunities, 0);
+              }}
+            >
+              {chip}
+            </button>
+          ))}
+        </div>
+        <button className="adv-toggle" id="advToggle" onClick={() => setAdvFiltersOpen(!advFiltersOpen)}>
+          {advFiltersOpen ? '⚙ Advanced filters ▴' : '⚙ Advanced filters ▾'}
+        </button>
+        <div className={`adv-panel ${advFiltersOpen ? 'open' : ''}`} id="advPanel">
+          <div className="adv-filters">
+            <div className="adv-item">
+              <label>Min Salary</label>
+              <select><option>Any</option><option>$20K+</option><option>$40K+</option><option>$60K+</option><option>$80K+</option></select>
             </div>
-
-            <div className="flex flex-wrap justify-center gap-3 pt-6">
-              <Badge
-                variant="secondary"
-                className="bg-blue-50 text-blue-700 border-blue-200 px-4 py-2 text-sm font-medium"
-              >
-                🎓 Student-focused
-              </Badge>
-              <Badge
-                variant="secondary"
-                className="bg-green-50 text-green-700 border-green-200 px-4 py-2 text-sm font-medium"
-              >
-                🔍 Carefully curated
-              </Badge>
-              <Badge
-                variant="secondary"
-                className="bg-purple-50 text-purple-700 border-purple-200 px-4 py-2 text-sm font-medium"
-              >
-                🚀 Career-boosting
-              </Badge>
-              <Badge
-                variant="secondary"
-                className="bg-orange-50 text-orange-700 border-orange-200 px-4 py-2 text-sm font-medium"
-              >
-                ⚡ Real-time updates
-              </Badge>
+            <div className="adv-item">
+              <label>Work Type</label>
+              <select><option>Any</option><option>Full-time</option><option>Part-time</option><option>Contract</option><option>Freelance</option></select>
             </div>
-
-            {/* Quick stats */}
-            <div className="flex flex-wrap justify-center gap-8 pt-8 text-center">
-              <div className="space-y-1">
-                <div 
-                  className="text-3xl font-bold text-primary transition-all duration-300"
-                  style={{
-                    opacity: hasStartedAnimation ? 1 : 0,
-                    transform: hasStartedAnimation ? 'translateY(0)' : 'translateY(10px)'
-                  }}
-                >
-                  {animatedOpportunitiesCount}+
-                </div>
-                <div className="text-sm text-muted-foreground font-medium">
-                  Active Opportunities
-                </div>
-              </div>
-              <div className="space-y-1">
-                <div 
-                  className="text-3xl font-bold text-primary transition-all duration-300"
-                  style={{
-                    opacity: hasStartedAnimation ? 1 : 0,
-                    transform: hasStartedAnimation ? 'translateY(0)' : 'translateY(10px)'
-                  }}
-                >
-                  {animatedCategoriesCount}
-                </div>
-                <div className="text-sm text-muted-foreground font-medium">
-                  Categories
-                </div>
-              </div>
-              <div className="space-y-1">
-                <div 
-                  className="text-3xl font-bold text-primary transition-all duration-300"
-                  style={{
-                    opacity: hasStartedAnimation ? 1 : 0,
-                    transform: hasStartedAnimation ? 'translateY(0)' : 'translateY(10px)'
-                  }}
-                >
-                  24/7
-                </div>
-                <div className="text-sm text-muted-foreground font-medium">
-                  New Updates
-                </div>
-              </div>
+            <div className="adv-item">
+              <label>Deadline</label>
+              <input type="date" style={{ colorScheme: 'dark' }} />
+            </div>
+            <div className="adv-item">
+              <label>Experience</label>
+              <select><option>Any</option><option>0–1 yr</option><option>1–3 yrs</option><option>3–5 yrs</option><option>5+ yrs</option></select>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Filters Section */}
-      <div className="bg-background border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <Card className="shadow-sm">
-            <CardContent className="p-4">
-              <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-                {/* Search Input */}
-                <div className="relative flex-1 max-w-md">
-                  <HiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                  <Input
-                    type="text"
-                    placeholder="Search opportunities..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-4">
-                  {/* Category Filter */}
-                  <div className="flex items-center gap-2">
-                    <HiFilter className="text-muted-foreground w-4 h-4" />
-                    <Select
-                      value={selectedCategory}
-                      onValueChange={setSelectedCategory}
-                    >
-                      <SelectTrigger className="w-48">
-                        <SelectValue placeholder="Category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map((category) => (
-                          <SelectItem
-                            key={category.value}
-                            value={category.value}
-                          >
-                            {category.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Sort Selection */}
-                  <Select
-                    value={sortBy}
-                    onValueChange={(
-                      value: "newest" | "deadline" | "featured"
-                    ) => setSortBy(value)}
-                  >
-                    <SelectTrigger className="w-48">
-                      <SelectValue placeholder="Sort by" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="newest">Newest First</SelectItem>
-                      <SelectItem value="deadline">Deadline Soon</SelectItem>
-                      <SelectItem value="featured">Featured First</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  {/* Submit Button */}
-                  {user && (
-                    <Button asChild>
-                      <Link to="/submit">
-                        <HiPlus className="w-4 h-4 mr-2" />
-                        Submit Opportunity
-                      </Link>
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+      {/* TRENDING RESULTS */}
+      <section className="section" id="trending" style={{ paddingTop: '20px' }}>
+        <div className="sec-header reveal visible">
+          <div>
+            <div className="sec-eye">Results</div>
+            <h2 className="sec-h2">Available<br />Opportunities</h2>
+          </div>
+          <div className="text-muted-foreground mt-4" style={{ fontFamily: 'Syne, sans-serif' }}>
+            <AnimatedCounter end={filteredAndSortedOpportunities.length} duration={1000} /> opportunities found
+          </div>
         </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Error Message */}
-        {error && (
-          <Card className="mb-8 border-red-200 bg-red-50/50">
-            <CardContent className="p-6">
-              <div className="flex">
-                <HiXCircle className="h-5 w-5 text-red-600 mt-0.5" />
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-red-900">
-                    Error Loading Opportunities
-                  </h3>
-                  <p className="mt-1 text-sm text-red-800">{error}</p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-2"
-                    onClick={() => fetchOpportunities()}
-                  >
-                    Try Again
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
+        
         {loading ? (
-          /* Loading State with Skeleton Cards */
-          <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="space-y-2">
-                <div className="h-8 w-64 bg-muted animate-pulse rounded"></div>
-                <div className="h-5 w-48 bg-muted animate-pulse rounded"></div>
-              </div>
+             <div style={{ display: 'flex', justifyContent: 'center', padding: '100px 0' }}>Loading opportunities...</div>
+        ) : error ? (
+            <div style={{ background: '#ff3366', color: '#fff', padding: '16px', borderRadius: '12px', marginBottom: '24px' }}>
+              <strong>Error:</strong> {error}
             </div>
-
-            <Separator />
-
-            <div className="grid gap-6 grid-cols-1 md:grid-cols-3">
-              {Array.from({ length: 6 }).map((_, index) => (
-                <Card
-                  key={index}
-                  className="h-full flex flex-col animate-pulse"
-                >
-                  <CardHeader className="pb-4">
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <div className="h-6 w-20 bg-muted rounded-full"></div>
-                        <div className="h-4 w-16 bg-muted rounded"></div>
-                      </div>
-                      <div className="h-5 w-full bg-muted rounded"></div>
-                      <div className="h-4 w-3/4 bg-muted rounded"></div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="flex-1 pb-4 space-y-4">
-                    <div className="space-y-2">
-                      <div className="h-3 w-full bg-muted rounded"></div>
-                      <div className="h-3 w-5/6 bg-muted rounded"></div>
-                      <div className="h-3 w-4/6 bg-muted rounded"></div>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="h-4 w-32 bg-muted rounded"></div>
-                      <div className="h-4 w-40 bg-muted rounded"></div>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="h-4 w-28 bg-muted rounded"></div>
-                      <div className="h-3 bg-muted rounded"></div>
-                    </div>
-                  </CardContent>
-                  <CardFooter className="pt-0 mt-auto">
-                    <div className="w-full space-y-3">
-                      <div className="h-px bg-muted"></div>
-                      <div className="flex justify-between items-center">
-                        <div className="flex gap-3">
-                          <div className="h-4 w-12 bg-muted rounded"></div>
-                          <div className="h-4 w-16 bg-muted rounded"></div>
-                        </div>
-                        <div className="h-8 w-20 bg-muted rounded"></div>
-                      </div>
-                    </div>
-                  </CardFooter>
-                </Card>
-              ))}
-            </div>
-          </div>
         ) : filteredAndSortedOpportunities.length === 0 ? (
-          /* Empty State */
-          <Card>
-            <CardContent className="py-24">
-              <div className="text-center space-y-6">
-                <div className="w-20 h-20 mx-auto bg-muted rounded-full flex items-center justify-center">
-                  <HiSearch className="w-10 h-10 text-muted-foreground" />
-                </div>
-                <div className="space-y-2">
-                  <h3 className="text-2xl font-semibold text-foreground">
-                    No opportunities found
-                  </h3>
-                  <p className="text-muted-foreground text-lg max-w-md mx-auto">
-                    {searchTerm || selectedCategory !== "all"
-                      ? "Try adjusting your search criteria or explore different categories"
-                      : "Be the first to share an amazing opportunity with the community!"}
-                  </p>
-                </div>
-                {user && (
-                  <Button size="lg" asChild>
-                    <Link to="/submit">
-                      <HiPlus className="w-5 h-5 mr-2" />
-                      Submit First Opportunity
-                    </Link>
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+            <div style={{ padding: '60px', textAlign: 'center', opacity: 0.6, background: 'var(--lb-cream)', borderRadius: '24px' }}>
+              <div style={{ fontSize: '32px', marginBottom: '12px' }}>🔍</div>
+              <div style={{ fontFamily: 'Syne, sans-serif', fontSize: '20px', fontWeight: 600 }}>No opportunities found</div>
+              <div>Try adjusting your search or filters.</div>
+            </div>
         ) : (
-          /* Opportunities Grid */
-          <div className="space-y-6">
-            {/* Results Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <h2 className="text-2xl font-semibold text-foreground">
-                  {filteredAndSortedOpportunities.length} Opportunit
-                  {filteredAndSortedOpportunities.length === 1
-                    ? "y"
-                    : "ies"}{" "}
-                  Found
-                </h2>
-                <p className="text-muted-foreground">
-                  {selectedCategory !== "all" &&
-                    `Filtered by ${
-                      categories.find((c) => c.value === selectedCategory)
-                        ?.label
-                    }`}
-                  {searchTerm &&
-                    (selectedCategory !== "all" ? " • " : "") +
-                      `Searching for "${searchTerm}"`}
-                </p>
-              </div>
-
-              <div className="text-sm text-muted-foreground">
-                Sorted by{" "}
-                {sortBy === "newest"
-                  ? "newest first"
-                  : sortBy === "deadline"
-                  ? "deadline approaching"
-                  : "featured first"}
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Opportunities Grid */}
-            <div className="grid gap-6 grid-cols-1 md:grid-cols-3">
-              {visibleOpportunities.map((opportunity, index) => (
-                <div
-                  key={opportunity.id}
-                  className="animate-in fade-in slide-in-from-bottom-4 duration-500"
-                  style={{
-                    animationDelay: `${Math.min(index * 50, 400)}ms`,
-                    animationFillMode: "both",
-                  }}
-                >
-                  <OpportunityCard
-                    opportunity={opportunity}
-                    isBookmarked={bookmarkedOpportunities.includes(
-                      opportunity.id
-                    )}
-                    onBookmarkToggle={handleBookmarkToggle}
-                  />
-                </div>
-              ))}
-            </div>
-
-            {/* Show remaining button */}
-            {!showAll && filteredAndSortedOpportunities.length > 6 && (
-              <div className="text-center pt-4">
-                <Button size="lg" variant="default" onClick={() => setShowAll(true)}>
-                  Show remaining {filteredAndSortedOpportunities.length - 6}
-                </Button>
-              </div>
-            )}
-
-            {/* Load count */}
-            {showAll && (
-              <div className="text-center pt-6 space-y-3">
-                <p className="text-muted-foreground">
-                  Showing all {filteredAndSortedOpportunities.length} opportunities
-                </p>
-                <Button variant="outline" size="lg" onClick={() => setShowAll(false)}>
-                  View less
-                </Button>
-              </div>
-            )}
+          <div className="trending-grid">
+            {filteredAndSortedOpportunities.map(op => (
+               <OpportunityCard 
+                 key={op.id}
+                 opportunity={op}
+                 isBookmarked={bookmarkedOpportunities.includes(op.id)}
+                 onBookmarkToggle={fetchBookmarks}
+               />
+            ))}
           </div>
         )}
-      </div>
+      </section>
+      <Footer />
     </div>
   );
 }

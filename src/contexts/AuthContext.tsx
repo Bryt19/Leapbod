@@ -11,7 +11,12 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
-  signOut: () => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<void>;
+  signUpWithEmail: (email: string, password: string, fullName: string) => Promise<void>;
+  verifyEmailOtp: (email: string, token: string, type: 'signup' | 'recovery') => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  updatePassword: (password: string) => Promise<void>;
+  signOut: (e?: React.MouseEvent) => Promise<void>;
   isAdmin: boolean;
 }
 
@@ -88,7 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await handleUserSignIn(session.user);
           // Only redirect away from auth pages; otherwise keep current route or restore lastPath
           const isAuthPage = location.pathname === "/auth/login" || location.pathname === "/auth/callback";
-          if (isAuthPage) {
+          if (isAuthPage && !(window as any).skipAuthRedirect) {
             const lastPath = localStorage.getItem("lastPath");
             navigate(lastPath || "/dashboard");
           }
@@ -118,6 +123,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           fetchUserProfile(session.user.id).catch(() => {
             // Silently handle profile fetch errors
           });
+        }
+        setLoading(false);
+      } else if (event === "PASSWORD_RECOVERY") {
+        // Handle recovery link click - the user will be redirected back to the app with a recovery session
+        const isAuthPage = window.location.pathname === "/auth/login" || window.location.pathname === "/auth/callback";
+        if (isAuthPage) {
+          window.location.hash = "recovery";
+        } else {
+          navigate("/auth/login#recovery", { replace: true });
         }
         setLoading(false);
       } else {
@@ -297,34 +311,124 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signOut = async () => {
+  const signInWithEmail = async (email: string, password: string) => {
     try {
       setLoading(true);
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        // Silently handle sign out errors
-      }
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-      // Clear local state
+      if (error) {
+        throw error;
+      }
+    } catch (error) {
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const signUpWithEmail = async (email: string, password: string, fullName: string) => {
+    try {
+      setLoading(true);
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+          },
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+    } catch (error) {
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyEmailOtp = async (email: string, token: string, type: 'signup' | 'recovery') => {
+    try {
+      setLoading(true);
+      const { error } = await supabase.auth.verifyOtp({ email, token, type });
+      if (error) throw error;
+    } catch (error) {
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetPassword = async (email: string) => {
+    try {
+      setLoading(true);
+      // We don't use redirectTo here because we'll handle verifyOtp in the UI
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/login`,
+      });
+      if (error) {
+        console.error("Supabase Password Reset Error:", error);
+        throw error;
+      }
+    } catch (error) {
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updatePassword = async (password: string) => {
+    try {
+      setLoading(true);
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) throw error;
+    } catch (error) {
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const signOut = async (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
+    try {
+      setLoading(true);
+      // Force clear all local storage first to break any stuck loops
+      const theme = localStorage.getItem("theme");
+      localStorage.clear();
+      if (theme) localStorage.setItem("theme", theme);
+      
+      // Clear all state immediately for instant UI response
       setUser(null);
       setProfile(null);
       setSession(null);
 
-      // Preserve theme; remove app-specific keys
-      const theme = localStorage.getItem("theme");
-      localStorage.clear();
-      if (theme) localStorage.setItem("theme", theme);
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error("Supabase signOut error:", error);
+      }
 
-      // Redirect to homepage and replace history entry
+      // Redirect and replace history entry
       navigate("/", { replace: true });
-      // Hard redirect fallback to guarantee navigation
+      
+      // Hard reload fallback after a short delay if navigation seems stuck
       setTimeout(() => {
         if (window.location.pathname !== "/") {
-          window.location.assign("/");
+          window.location.href = "/";
         }
-      }, 50);
+      }, 100);
     } catch (error) {
-      throw error;
+      console.error("Critical signOut error:", error);
+      window.location.href = "/";
     } finally {
       setLoading(false);
     }
@@ -342,6 +446,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     session,
     loading,
     signInWithGoogle,
+    signInWithEmail,
+    signUpWithEmail,
+    verifyEmailOtp,
+    resetPassword,
+    updatePassword,
     signOut,
     isAdmin,
   };
