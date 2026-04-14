@@ -184,7 +184,7 @@ PasswordInput.displayName = "PasswordInput";
 
 type AuthMode = "signin" | "signup" | "forgot" | "check_email" | "verify_signup" | "new_password" | "success_signup" | "success_signin";
 
-export function AuthUI() {
+export function AuthUI({ initialMode = "signin" }: { initialMode?: AuthMode }) {
   const { 
     signInWithGoogle, signInWithEmail, signUpWithEmail, 
     verifyEmailOtp, resetPassword, updatePassword 
@@ -194,7 +194,7 @@ export function AuthUI() {
   const location = useLocation();
   const from = (location.state as any)?.from || "/";
 
-  const [mode, setMode] = useState<AuthMode>("signin");
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -202,6 +202,8 @@ export function AuthUI() {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [otp, setOtp] = useState("");
+  const [resendSuccess, setResendSuccess] = useState(false);
+  const [resendTimer, setResendTimer] = useState(0);
   
   const [countdown, setCountdown] = useState(5);
 
@@ -231,6 +233,13 @@ export function AuthUI() {
       window.removeEventListener('hashchange', checkHash);
     };
   }, []);
+
+  useEffect(() => {
+    if (resendTimer > 0) {
+      const timer = setTimeout(() => setResendTimer(resendTimer - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resendTimer]);
 
   useEffect(() => {
     if (mode === "success_signup" || mode === "success_signin") {
@@ -281,10 +290,16 @@ export function AuthUI() {
         if (!email) throw new Error("Please enter your email.");
         try {
           await resetPassword(email);
-        } catch (e) {
-          // Silent for security (prevents account enumeration)
+          setMode("check_email");
+        } catch (error: any) {
+          // If it's a rate limit error or something else that isn't security-related silence
+          if (error?.message && !error.message.toLowerCase().includes("not found")) {
+            setError(error.message);
+          } else {
+            // Still show check_email for security if it's "user not found"
+            setMode("check_email");
+          }
         }
-        setMode("check_email");
       }
       else if (mode === "verify_signup") {
         if (!otp) throw new Error("Please enter the 6-digit code.");
@@ -298,7 +313,16 @@ export function AuthUI() {
         setMode("success_signin");
       }
     } catch (error: any) {
-      setError(error.message || "An error occurred during authentication");
+      console.error("[Auth] Submit Error:", error);
+      let message = error.message || "An error occurred during authentication";
+      
+      if (message.includes("Failed to fetch")) {
+        message = "Network Error: Could not reach the authentication server. Please check your internet connection or verify if your Supabase project is active (not paused).";
+      } else if (message.includes("Error sending recovery email") || message.includes("Error sending confirmation code")) {
+        message = "Email Service Error: Supabase failed to send an email/code. This usually means your SMTP settings in the Supabase dashboard are incorrect or your email quota has been exceeded.";
+      }
+      
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -309,8 +333,13 @@ export function AuthUI() {
     switch (mode) {
       case "signin": return { title: "Welcome back", sub: "Sign in to continue your journey and discover amazing opportunities." };
       case "signup": return { title: "Create an account", sub: "Sign up to start discovering opportunities." };
-      case "forgot": return { title: "Reset Password", sub: "Enter your email below. If an account exists, a reset link will be sent." };
-      case "check_email": return { title: "Check your inbox", sub: "If an account exists, we've sent a link to reset your password. Search for an email from LeapBod with the subject 'Reset Your Password'." };
+      case "forgot": return { title: "Reset your password", sub: "Enter your email to receive a password reset link" };
+      case "check_email": return { 
+        title: "Check your inbox", 
+        sub: resendSuccess 
+          ? "We've sent another link! Please check your inbox and spam folder again." 
+          : `If an account exists, we've sent a link to reset your password to ${email}. Search for an email from LeapBod with the subject 'Reset Your Password'.` 
+      };
       case "verify_signup": return { title: "Verify your email", sub: `We sent a 6-digit code to ${email}` };
       case "new_password": return { title: "New Password", sub: "Enter your new password below to regain access." };
       case "success_signup": return { title: "Account successfully created", sub: `Redirecting you to ${targetName} in ${countdown} sec...` };
@@ -368,8 +397,8 @@ export function AuthUI() {
 
                      {(mode === "signin" || mode === "signup" || mode === "forgot") && (
                          <div className="grid gap-2 text-left">
-                            <Label htmlFor="email">Email</Label>
-                            <Input id="email" type="email" value={email} onChange={(e)=>setEmail(e.target.value)} required />
+                            <Label htmlFor="email">{mode === "forgot" ? "Email *" : "Email"}</Label>
+                            <Input id="email" type="email" placeholder={mode === "forgot" ? "Enter your email address" : "name@example.com"} value={email} onChange={(e)=>setEmail(e.target.value)} required />
                          </div>
                      )}
 
@@ -398,13 +427,13 @@ export function AuthUI() {
                          {loading ? "Processing..." : 
                             mode === "signin" ? "Sign In" : 
                             mode === "signup" ? "Sign Up" : 
-                            mode === "forgot" ? "Send Link" : 
+                            mode === "forgot" ? "Send reset link" : 
                             mode === "new_password" ? "Update Password" : "Verify Code"}
                      </Button>
 
                      {mode === "signin" && (
                          <div className="text-right -mt-2">
-                            <Button type="button" variant="link" className="px-0 py-0 h-auto text-xs text-muted-foreground" onClick={() => { setError(null); setMode("forgot"); }}>
+                            <Button type="button" variant="link" className="px-0 py-0 h-auto text-xs text-muted-foreground" onClick={() => { setError(null); navigate("/auth/forgot-password"); }}>
                                 Forgot password?
                             </Button>
                          </div>
@@ -424,7 +453,54 @@ export function AuthUI() {
                   </>
               )}
 
-              {mode !== "success_signup" && mode !== "success_signin" && (
+              {mode === "check_email" && (
+                <div className="flex flex-col gap-4">
+                  <div className="bg-primary/5 p-4 rounded-lg border border-primary/10 text-sm text-muted-foreground animate-in fade-in slide-in-from-bottom-2 duration-500">
+                    <p className="font-medium text-foreground mb-1">Didn't receive the email?</p>
+                    <ul className="list-disc list-inside space-y-1 opacity-80">
+                      <li>Check your spam or junk folder</li>
+                      <li>Wait a few minutes (it can be delayed)</li>
+                      <li>Ensure you typed the email correctly</li>
+                    </ul>
+                  </div>
+
+                  <Button 
+                    type="button" 
+                    variant="outline"
+                    className="w-full h-12 rounded-xl transition-all hover:bg-accent"
+                    onClick={async () => {
+                      if (resendTimer > 0) return;
+                      setLoading(true);
+                      setError(null);
+                      try {
+                        await resetPassword(email);
+                        setResendSuccess(true);
+                        setResendTimer(60); // 1 minute cooldown
+                        setTimeout(() => setResendSuccess(false), 5000);
+                      } catch (e: any) {
+                        setError(e.message || "Failed to resend email. Please try again later.");
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    disabled={loading || resendTimer > 0}
+                  >
+                    {loading ? "Sending..." : resendTimer > 0 ? `Wait ${resendTimer}s` : "Resend Email"}
+                  </Button>
+                  
+                  <div className="text-center pt-2">
+                    <Button 
+                      variant="link" 
+                      className="text-muted-foreground hover:text-foreground text-xs" 
+                      onClick={() => { setError(null); setMode("signin"); }}
+                    >
+                        Back to sign in
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {mode !== "success_signup" && mode !== "success_signin" && mode !== "check_email" && (
                   <div className="text-center text-sm mt-4">
                       {mode === "signin" ? "Don't have an account?" : 
                        mode === "signup" ? "Already have an account?" : ""}
@@ -433,8 +509,8 @@ export function AuthUI() {
                               {mode === "signin" ? "Sign up" : "Sign in"}
                           </Button>
                       ) : (
-                          <Button variant="link" className="text-foreground" onClick={() => { setError(null); setMode("signin"); }}>
-                              Back to Sign In
+                          <Button variant="link" className="text-foreground" onClick={() => { setError(null); setMode("signin"); navigate("/auth/login"); }}>
+                              Back to sign in
                           </Button>
                       )}
                   </div>

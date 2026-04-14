@@ -367,14 +367,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const resetPassword = async (email: string) => {
     try {
       setLoading(true);
-      // We don't use redirectTo here because we'll handle verifyOtp in the UI
+      console.log(`[Auth] Initiating password reset for: ${email}`);
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/auth/login`,
       });
       if (error) {
-        console.error("Supabase Password Reset Error:", error);
+        console.error("[Auth] Supabase Password Reset Error:", error);
         throw error;
       }
+      console.log("[Auth] Password reset request successful");
     } catch (error) {
       throw error;
     } finally {
