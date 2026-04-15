@@ -237,7 +237,7 @@ export default function HomePage() {
           <p className="hero-sub">Jobs, grants, events, internships — curated and searchable in one place. Whether you're a student, professional, or entrepreneur, LeapBod has something for you.</p>
           <div className="hero-actions">
             <Link to="/opportunities" className="btn btn-accent btn-lg">Explore now →</Link>
-            <Link to="/submit" className="btn btn-ghost btn-lg">Post a listing</Link>
+            <Link to="/dashboard" className="btn btn-ghost btn-lg">Post a listing</Link>
           </div>
           <div className="hero-trust">
             <div className="trust-avatars">
@@ -610,7 +610,7 @@ export default function HomePage() {
           ) : (
             <Link to="/dashboard" className="btn btn-paper btn-lg">Go to Dashboard →</Link>
           )}
-          <Link to="/submit" className="btn btn-out btn-lg">Post an opportunity</Link>
+          <Link to="/dashboard" className="btn btn-out btn-lg">Post an opportunity</Link>
         </div>
       </section>
 

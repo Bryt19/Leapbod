@@ -1,16 +1,10 @@
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext'
 
 const CallToAction = () => {
   const navigate = useNavigate()
-  const { user } = useAuth()
 
   const handleClick = () => {
-    if (user) {
-      navigate('/dashboard')
-    } else {
-      navigate('/auth/login')
-    }
+    navigate('/community')
   }
 
 
@@ -25,7 +19,7 @@ const CallToAction = () => {
           onClick={handleClick}
           className="bg-primary text-white px-6 py-3 rounded-lg font-medium hover:bg-primary/90 transition-colors"
         >
-          {user ? 'Go to Dashboard' : 'Sign In to Get Started'}
+          Get Started
         </button>
       </div>
     </section>

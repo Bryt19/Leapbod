@@ -34,7 +34,7 @@ const Footer = () => {
           <h4 style={{ color: 'var(--lb-paper)' }}>Company</h4>
           <ul>
             <li><Link to="/about" style={{ color: 'rgba(246, 243, 238, 0.6)' }}>About</Link></li>
-            <li><a href="/#employers" style={{ color: 'rgba(246, 243, 238, 0.6)' }}>For Employers</a></li>
+            <li><Link to="/employers" style={{ color: 'rgba(246, 243, 238, 0.6)' }}>For Employers</Link></li>
             <li><Link to="/blog" style={{ color: 'rgba(246, 243, 238, 0.6)' }}>Blog</Link></li>
             <li><Link to="/contact" style={{ color: 'rgba(246, 243, 238, 0.6)' }}>Contact</Link></li>
           </ul>

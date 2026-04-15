@@ -15,6 +15,7 @@ import TermsPage from "./pages/TermsPage";
 import PrivacyPage from "./pages/PrivacyPage";
 import LeaderboardPage from "./pages/LeaderboardPage";
 import BlogPage from "./pages/BlogPage";
+import EmployersPage from "./pages/EmployersPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { NetworkStatus } from "./components/NetworkStatus";
@@ -46,6 +47,7 @@ function App() {
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/leaderboard" element={<LeaderboardPage />} />
         <Route path="/blog" element={<BlogPage />} />
+        <Route path="/employers" element={<EmployersPage />} />
 
         {/* Protected routes */}
         <Route

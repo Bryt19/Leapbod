@@ -8,7 +8,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "./ui/dialog";
 
 
@@ -28,8 +27,8 @@ export default function Navigation() {
   };
 
   const confirmSignout = async () => {
-    await signOut();
     setShowSignoutConfirm(false);
+    await signOut();
     navigate('/');
   };
 
@@ -110,7 +109,7 @@ export default function Navigation() {
           !isAuthPage && (
             <>
               <button onClick={() => navigate('/auth/login', { state: { from: location.pathname } })} className="btn btn-ghost hide-mobile">Log in</button>
-              <button onClick={() => navigate('/auth/login', { state: { from: location.pathname } })} className="btn btn-dark">Get started →</button>
+              <button onClick={() => navigate('/community')} className="btn btn-dark">Get started →</button>
             </>
           )
         )}
@@ -127,54 +126,63 @@ export default function Navigation() {
 
       {/* Sign Out Confirmation Dialog */}
       <Dialog open={showSignoutConfirm} onOpenChange={setShowSignoutConfirm}>
-        <DialogContent className="w-[92vw] max-w-md p-6" style={{ borderRadius: '24px', background: 'var(--lb-paper)', border: '1px solid var(--lb-border)' }}>
-          <DialogHeader>
-            <DialogTitle style={{ fontFamily: 'Syne, sans-serif', fontSize: '20px', fontWeight: 800 }}>Confirm Sign Out</DialogTitle>
-            <DialogDescription style={{ color: 'var(--lb-muted)', fontSize: '15px', marginTop: '8px' }}>
-              Are you sure you want to sign out of your account? You'll need to log in again to access your dashboard and saved items.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="mt-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
-            <button 
-              className="btn btn-ghost w-full sm:w-auto" 
-              onClick={() => setShowSignoutConfirm(false)}
-            >
-              Cancel
-            </button>
-            <button 
-              className="btn btn-dark w-full sm:w-auto" 
-              onClick={confirmSignout}
-              style={{ 
-                background: 'var(--lb-ink)', 
-                color: 'var(--lb-paper)', 
-                border: '1px solid var(--lb-ink)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                padding: '12px 15px',
-                borderRadius: '12px',
-                fontWeight: 600,
-                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
-              }}
-              onMouseOver={(e) => {
-                e.currentTarget.style.background = '#ff3366';
-                e.currentTarget.style.borderColor = '#ff3366';
-                e.currentTarget.style.color = 'white';
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 6px 12px rgba(255, 51, 102, 0.2)';
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.background = 'var(--lb-ink)';
-                e.currentTarget.style.borderColor = 'var(--lb-ink)';
-                e.currentTarget.style.color = 'var(--lb-paper)';
-                e.currentTarget.style.transform = 'none';
-                e.currentTarget.style.boxShadow = 'none';
-              }}
-            >
-              <HiLogout style={{ fontSize: '18px' }} /> Confirm Sign Out
-            </button>
-          </DialogFooter>
+        <DialogContent className="w-[92vw] max-w-[400px] p-0 overflow-hidden border-none" style={{ borderRadius: '32px', background: 'var(--lb-paper)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+          <div style={{ padding: '40px 32px', textAlign: 'center' }}>
+            <div style={{ 
+              width: '64px', height: '64px', borderRadius: '20px', 
+              background: '#fff1f2', color: '#e11d48', 
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 24px', fontSize: '28px'
+            }}>
+              <HiLogout />
+            </div>
+            
+            <DialogHeader style={{ padding: 0, textAlign: 'center' }}>
+              <DialogTitle style={{ fontFamily: 'Syne, sans-serif', fontSize: '24px', fontWeight: 800, color: 'var(--lb-ink)', marginBottom: '12px' }}>
+                Sign out?
+              </DialogTitle>
+              <DialogDescription style={{ color: 'var(--lb-muted)', fontSize: '15px', lineHeight: '1.6', margin: 0 }}>
+                You'll need to log back in to access your saved opportunities and professional dashboard.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div style={{ display: 'flex', gap: '12px', marginTop: '32px' }}>
+              <button 
+                onClick={() => setShowSignoutConfirm(false)}
+                className="btn btn-ghost"
+                style={{ 
+                  flex: 1,
+                  padding: '14px', 
+                  borderRadius: '16px', 
+                  fontSize: '15px', 
+                  fontWeight: 600,
+                  color: 'var(--lb-muted)',
+                  border: '1px solid var(--lb-border)'
+                }}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={confirmSignout}
+                className="btn btn-dark"
+                style={{ 
+                  flex: 1.5,
+                  background: 'var(--lb-ink)', 
+                  color: 'white', 
+                  padding: '14px', 
+                  borderRadius: '16px', 
+                  fontSize: '15px', 
+                  fontWeight: 700,
+                  border: 'none',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseOver={(e) => { e.currentTarget.style.background = '#e11d48'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = 'var(--lb-ink)'; e.currentTarget.style.transform = 'none'; }}
+              >
+                Sign out
+              </button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </nav>

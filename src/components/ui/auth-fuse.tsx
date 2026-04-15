@@ -350,11 +350,11 @@ export function AuthUI({ initialMode = "signin" }: { initialMode?: AuthMode }) {
   const header = renderHeader();
 
   const currentContent = mode === "signup" || mode === "verify_signup" || mode === "success_signup" ? {
-    image: { src: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&q=80", alt: "Collaboration" },
-    quote: { text: "Create an account. A new chapter awaits.", author: "LeapBod" }
+    image: { src: "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&q=80", alt: "Professional Team Meeting" },
+    quote: { text: "Connect with industry leaders and accelerate your career.", author: "LeapBod" }
   } : {
-    image: { src: "https://images.unsplash.com/photo-1542435503-956c469947f6?auto=format&fit=crop&q=80", alt: "Workspace" },
-    quote: { text: "Welcome Back! The journey continues.", author: "LeapBod" }
+    image: { src: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&q=80", alt: "Modern Architecture" },
+    quote: { text: "The journey of a thousand miles begins with a single leap.", author: "LeapBod" }
   };
 
   return (
@@ -381,7 +381,17 @@ export function AuthUI({ initialMode = "signin" }: { initialMode?: AuthMode }) {
               </div>
 
               {error && (
-                <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md text-center">
+                <div style={{ 
+                  padding: '12px 16px', 
+                  borderRadius: '12px', 
+                  background: '#fff1f2', 
+                  color: '#e11d48', 
+                  fontSize: '14px', 
+                  marginBottom: '16px',
+                  border: '1px solid #fecdd3',
+                  textAlign: 'center',
+                  fontWeight: 500
+                }}>
                   {error}
                 </div>
               )}
