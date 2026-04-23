@@ -7,11 +7,11 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
-  const { user, profile, loading } = useAuth()
+  const { user, loading, isAdmin, isProfileLoading } = useAuth()
   const location = useLocation()
 
   // Show loading spinner only while checking authentication
-  if (loading) {
+  if (loading || (requireAdmin && isProfileLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -27,19 +27,8 @@ export default function ProtectedRoute({ children, requireAdmin = false }: Prote
     return <Navigate to="/auth/login" state={{ from: location.pathname }} replace />
   }
 
-  // Admin routes: wait for profile to resolve, then check role
-  if (requireAdmin) {
-    if (!profile) {
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading...</p>
-          </div>
-        </div>
-      )
-    }
-    if (profile.role !== 'admin') {
+  // Admin routes: check if user has admin privileges
+  if (requireAdmin && !isAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="max-w-md w-full text-center">
@@ -65,8 +54,8 @@ export default function ProtectedRoute({ children, requireAdmin = false }: Prote
         </div>
       </div>
     )
-    }
   }
 
   return <>{children}</>
-} 
+}
+ 

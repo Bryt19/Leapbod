@@ -84,19 +84,24 @@ interface DashboardStats {
 export default function AdminPanel() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
-  const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [profiles, setProfiles] = useState<Profile[]>(() => getCache<Profile[]>("admin:profiles:v1") || []);
+  const [opportunities, setOpportunities] = useState<Opportunity[]>(() => getCache<Opportunity[]>("admin:opps:v1") || []);
   const [selectedItem, setSelectedItem] = useState<DetailItem | null>(null);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [dialogMode, setDialogMode] = useState<DialogMode>("view");
   const [editForm, setEditForm] = useState<Partial<Opportunity>>({});
-  const [stats, setStats] = useState<DashboardStats>({
-    totalUsers: 0,
-    totalOpportunities: 0,
-    pendingOpportunities: 0,
-    totalApplications: 0,
+  const [stats, setStats] = useState<DashboardStats>(() => {
+    return getCache<DashboardStats>("admin:stats:v1") || {
+      totalUsers: 0,
+      totalOpportunities: 0,
+      pendingOpportunities: 0,
+      totalApplications: 0,
+    };
   });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => {
+    const cachedStats = getCache<DashboardStats>("admin:stats:v1");
+    return !cachedStats;
+  });
   const [updating, setUpdating] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [userFilter, setUserFilter] = useState("all");
@@ -126,11 +131,14 @@ export default function AdminPanel() {
   useEffect(() => {
     // Only fetch what's needed for the initial tab (overview stats)
     fetchStats();
-    // Hydrate caches for other tabs to speed up first render
-    const profCache = getCache<Profile[]>("admin:profiles:v1");
-    if (profCache) setProfiles(profCache);
-    const oppCache = getCache<Opportunity[]>("admin:opps:v1");
-    if (oppCache) setOpportunities(oppCache);
+    
+    // BACKGROUND PRE-FETCH: Warm up other tabs after a short delay
+    const timer = setTimeout(() => {
+      fetchProfiles(true).catch(() => {});
+      fetchOpportunities(true).catch(() => {});
+    }, 1000);
+    
+    return () => clearTimeout(timer);
   }, []);
 
   // Lazy fetch per tab
@@ -148,6 +156,8 @@ export default function AdminPanel() {
       const cached = getCache<DashboardStats>("admin:stats:v1");
       if (cached) {
         setStats(cached);
+        // If we have cache, we can show the UI immediately and update in background
+        setLoading(false);
       }
 
       const [
@@ -180,19 +190,26 @@ export default function AdminPanel() {
       setCache("admin:stats:v1", newStats, 60_000); // 1 minute cache for stats
     } catch (error) {
       console.error("Error fetching stats:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const fetchProfiles = async () => {
+  const fetchProfiles = async (isBackground = false) => {
     try {
       // Check cache first
       const cached = getCache<Profile[]>("admin:profiles:v1");
       if (cached && cached.length) {
         setProfiles(cached);
-        setLoading(false);
+        // If we have cache, we don't need the global loading spinner
+        if (!isBackground) setLoading(false);
       }
       
-      setLoading(true);
+      // Only show global loading if we have no profiles yet and not in background
+      if (!profiles.length && !isBackground) {
+        setLoading(true);
+      }
+
       const data = await dedupeRequest("fetch-admin-profiles", async () => {
         const { data, error } = await supabase
           .from("profiles")
@@ -208,20 +225,25 @@ export default function AdminPanel() {
     } catch (error) {
       console.error("Error fetching profiles:", error);
     } finally {
-      setLoading(false);
+      if (!isBackground) setLoading(false);
     }
   };
 
-  const fetchOpportunities = async () => {
+  const fetchOpportunities = async (isBackground = false) => {
     try {
       // Check cache first
       const cached = getCache<Opportunity[]>("admin:opps:v1");
       if (cached && cached.length) {
         setOpportunities(cached);
-        setLoading(false);
+        // If we have cache, we don't need the global loading spinner
+        if (!isBackground) setLoading(false);
       }
       
-      setLoading(true);
+      // Only show global loading if we have no opportunities yet and not in background
+      if (!opportunities.length && !isBackground) {
+        setLoading(true);
+      }
+
       const data = await dedupeRequest("fetch-admin-opps", async () => {
         const { data, error } = await supabase
           .from("opportunities")
@@ -238,7 +260,7 @@ export default function AdminPanel() {
     } catch (error) {
       console.error("Error fetching opportunities:", error);
     } finally {
-      setLoading(false);
+      if (!isBackground) setLoading(false);
     }
   };
 

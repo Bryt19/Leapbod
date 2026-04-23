@@ -18,6 +18,7 @@ interface AuthContextType {
   updatePassword: (password: string) => Promise<void>;
   signOut: (e?: React.MouseEvent) => Promise<void>;
   isAdmin: boolean;
+  isProfileLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -29,6 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isProfileLoading, setIsProfileLoading] = useState(true);
   // Removed global initial load gating to avoid blocking UI
 
   useEffect(() => {
@@ -47,7 +49,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
 
         const result = await Promise.race([sessionPromise, timeoutPromise]);
-        if (!mounted || !result) return;
+        if (!mounted) return;
+        
+        if (!result) {
+          setIsProfileLoading(false);
+          return;
+        }
 
         const {
           data: { session },
@@ -55,6 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } = result as Awaited<typeof sessionPromise>;
 
         if (error) {
+          setIsProfileLoading(false);
           return;
         }
 
@@ -63,12 +71,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (session?.user && mounted) {
           // Fetch profile in background, don't wait for it
-          fetchUserProfile(session.user.id).catch(() => {
-            // Silently handle profile fetch errors
+          fetchUserProfile(session.user.id).finally(() => {
+            if (mounted) setIsProfileLoading(false);
           });
+        } else {
+          setIsProfileLoading(false);
         }
       } catch (error) {
-        // Silently handle session errors
+        setIsProfileLoading(false);
       } finally {
         // no-op
       }
@@ -137,6 +147,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setLoading(false);
       }
+      
+      // If we have a user but no profile yet, make sure we trigger a fetch
+      if (session?.user && !profile) {
+        fetchUserProfile(session.user.id).finally(() => {
+          if (mounted) setIsProfileLoading(false);
+        });
+      } else if (!session?.user) {
+        setIsProfileLoading(false);
+      }
     });
 
     return () => {
@@ -152,6 +171,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const cached = getCache<Profile>(cacheKey);
       if (cached) {
         setProfile(cached as Profile);
+        setIsProfileLoading(false);
       }
 
       const data = await dedupeRequest(`fetch-profile-${userId}`, async () => {
@@ -454,6 +474,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     updatePassword,
     signOut,
     isAdmin,
+    isProfileLoading,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
